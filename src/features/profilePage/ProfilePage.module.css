@@ -1,0 +1,405 @@
+/* ProfilePage.module.css */
+
+.profilePage {
+  min-height: 100vh;
+  background-color: #080808;
+  color: #fff;
+  padding: 100px 60px 80px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.profileBgText {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(100px, 20vw, 280px);
+  color: rgba(255, 255, 255, 0.02);
+  letter-spacing: 10px;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 0;
+}
+
+.profileInner {
+  position: relative;
+  z-index: 2;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Top ── */
+.profileTop {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 40px;
+  align-items: center;
+  padding-bottom: 48px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 48px;
+}
+
+.profileAvatarWrap { position: relative; }
+
+.profileAvatar {
+  width: 110px;
+  height: 110px;
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 44px;
+  letter-spacing: 2px;
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+}
+.profileAvatar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+}
+
+.avatarRing {
+  position: absolute;
+  inset: -6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  animation: spin 8s linear infinite;
+  pointer-events: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.profileMeta { display: flex; flex-direction: column; gap: 8px; }
+
+.profileName {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(40px, 6vw, 72px);
+  letter-spacing: 4px;
+  line-height: 1;
+  margin: 0;
+}
+
+.profileRank {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rankBadge {
+  padding: 4px 12px;
+  font-size: 9px;
+  letter-spacing: 3px;
+  border: 1px solid;
+}
+.rankVip    { color: #a78bfa; border-color: rgba(167, 139, 250, 0.3); }
+.rankPro    { color: #4da6ff; border-color: rgba(77, 166, 255, 0.3); }
+.rankNewbie { color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15); }
+
+.profileBackBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+.btnProfileBack {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+  padding: 10px 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.btnProfileBack:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+
+/* ── Stats (3 колонки теперь) ── */
+.profileStatsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin-bottom: 48px;
+}
+.statCard {
+  background: #0a0a0a;
+  padding: 32px 24px;
+  text-align: center;
+}
+.statNumber {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 48px;
+  letter-spacing: 2px;
+  display: block;
+  margin-bottom: 6px;
+}
+.statLabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+}
+.textGreen  { color: #00e87a; }
+.textPurple { color: #a78bfa; }
+.textBlue   { color: #4da6ff; }
+
+/* ── Grid ── */
+.profileGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.profileBlock {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 32px;
+}
+
+.blockTitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Info rows ── */
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.infoRow:last-child { border-bottom: none; }
+
+.infoLabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.infoValue {
+  font-size: 14px;
+  font-weight: 500;
+  word-break: break-word;
+  text-align: right;
+  max-width: 60%;
+}
+
+/* ── Edit form ── */
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.editField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editLabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+}
+
+.editInput {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 10px 0;
+  color: #fff;
+  font-size: 14px;
+  font-family: 'Space Grotesk', sans-serif;
+  outline: none;
+  transition: border-color 0.3s;
+  width: 100%;
+}
+.editInput:focus { border-bottom-color: rgba(255, 255, 255, 0.6); }
+.editInput::placeholder { color: rgba(255, 255, 255, 0.18); font-size: 13px; }
+
+.editActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.editSaveBtn {
+  flex: 1;
+  background: #fff;
+  color: #000;
+  border: none;
+  padding: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.editSaveBtn:hover:not(:disabled) {
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+.editSaveBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.editCancelBtn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+  padding: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.editCancelBtn:hover:not(:disabled) { border-color: rgba(255,255,255,0.3); color: #fff; }
+.editCancelBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Bookings ── */
+.recentBooking {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.recentBooking:last-child { border-bottom: none; }
+
+.bookingIcon { font-size: 22px; opacity: 0.55; flex-shrink: 0; }
+.bookingInfo { flex: 1; }
+.bookingName { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+.bookingDate {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.4);
+}
+.bookingSum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+/* ── Actions ── */
+.profileActions {
+  display: flex;
+  gap: 16px;
+}
+.actionBtn {
+  flex: 1;
+  padding: 16px 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  border: none;
+}
+.actionBtn.primary  { background: #fff; color: #000; }
+.actionBtn.primary:hover { box-shadow: 0 0 40px rgba(255,255,255,0.2); transform: translateY(-2px); }
+.actionBtn.outline  { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+.actionBtn.outline:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+.actionBtn.danger   { background: transparent; border: 1px solid rgba(255,59,59,0.3); color: #ff3b3b; }
+.actionBtn.danger:hover { background: rgba(255,59,59,0.05); border-color: rgba(255,59,59,0.5); }
+
+/* ── States ── */
+.successMessage {
+  background: rgba(0, 232, 122, 0.08);
+  border: 1px solid rgba(0, 232, 122, 0.25);
+  color: #00e87a;
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.errorMessage {
+  color: #ff3b3b;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 10px 14px;
+  background: rgba(255, 59, 59, 0.06);
+  border: 1px solid rgba(255, 59, 59, 0.2);
+  letter-spacing: 1px;
+}
+
+.loaderSmall {
+  text-align: center;
+  font-size: 11px;
+  padding: 30px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 2px;
+}
+
+.emptyMessage {
+  text-align: center;
+  font-size: 11px;
+  padding: 30px;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.loader {
+  text-align: center;
+  font-size: 18px;
+  padding: 50px;
+  color: #fff;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .profilePage    { padding: 80px 30px; }
+  .profileTop     { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 20px; }
+  .profileBackBtn { align-items: center; flex-direction: row; justify-content: center; width: 100%; }
+  .profileRank    { justify-content: center; }
+  .profileStatsRow{ grid-template-columns: repeat(3, 1fr); }
+  .profileGrid    { grid-template-columns: 1fr; }
+  .profileActions { flex-direction: column; }
+  .infoRow        { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .infoValue      { text-align: left; max-width: 100%; }
+}
+@media (max-width: 500px) {
+  .profilePage    { padding: 60px 20px; }
+  .statCard       { padding: 20px 12px; }
+  .statNumber     { font-size: 36px; }
+  .profileStatsRow{ grid-template-columns: 1fr 1fr; }
+}

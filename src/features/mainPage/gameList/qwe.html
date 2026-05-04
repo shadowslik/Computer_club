@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERLOUNGE — Все страницы + Админка (все разделы отдельно)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== ПОЛНЫЕ СТИЛИ ИЗ ОРИГИНАЛА (без изменений) ===== */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#050505;--bg2:#0a0a0a;--bg3:#111;--bg4:#161616;
+  --white:#fff;--dim:rgba(255,255,255,0.45);--dim2:rgba(255,255,255,0.12);--dim3:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.15);--border3:rgba(255,255,255,0.28);
+  --red:#ff3b3b;--green:#00e87a;--yellow:#ffc800;--blue:#4da6ff;--purple:#a78bfa;
+  --display:'Bebas Neue',sans-serif;--body:'Space Grotesk',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+body{background:var(--bg);color:var(--white);font-family:var(--body);overflow-x:auto}
+button{border:none;cursor:pointer}
+.figma-label{position:sticky;top:0;z-index:100;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);padding:10px 24px;font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--green);border-bottom:1px solid var(--border);margin-bottom:20px;text-transform:uppercase;}
+.page-block{margin-bottom:60px;border-bottom:1px solid var(--border);}
+.header{display:none;} /* скрываем хедер, не нужен для Figma */
+
+/* остальные стили — копия из оригинала */
+.hero{position:relative;height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:url('https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1600&q=80') center/cover;filter:brightness(0.28) saturate(0.4)}
+.hero-grad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,5,5,0.15) 0%,rgba(5,5,5,0.55) 60%,var(--bg) 100%)}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.022) 1px,transparent 1px);background-size:80px 80px}
+.hero-vline{position:absolute;top:0;bottom:0;width:1px;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.06),transparent)}
+.hero-vline:nth-child(1){left:20%}.hero-vline:nth-child(2){left:40%}.hero-vline:nth-child(3){left:60%}.hero-vline:nth-child(4){left:80%}
+.hero-content{position:relative;z-index:2}
+.hero-badge{font-family:var(--mono);font-size:10px;letter-spacing:6px;color:var(--dim);border:1px solid var(--border2);padding:8px 24px;display:inline-flex;align-items:center;gap:10px;margin-bottom:36px;text-transform:uppercase;}
+.hero-badge::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+.hero-title{font-family:var(--display);font-size:clamp(72px,12vw,168px);line-height:0.88;letter-spacing:1px;margin-bottom:32px;}
+.hero-title .muted{color:var(--dim);display:block}
+.hero-sub{font-family:var(--mono);font-size:12px;letter-spacing:7px;color:var(--dim);text-transform:uppercase;margin-bottom:56px;}
+.hero-btns{display:flex;gap:14px;justify-content:center;}
+.btn-hero{padding:18px 54px;font-size:11px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;font-family:var(--mono);font-weight:700;transition:all 0.4s}
+.btn-hero.primary{background:#fff;color:#000;border:none}
+.btn-hero.primary:hover{box-shadow:0 0 60px rgba(255,255,255,0.22);transform:translateY(-2px)}
+.btn-hero.outline{background:transparent;color:#fff;border:1px solid var(--border2)}
+.hero-scroll{display:none;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.stat{padding:40px;text-align:center;position:relative}
+.stat:not(:last-child)::after{content:'';position:absolute;right:0;top:25%;height:50%;width:1px;background:var(--border)}
+.stat-n{font-family:var(--display);font-size:54px;letter-spacing:2px;display:block;margin-bottom:6px}
+.stat-l{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
+.section{padding:120px 60px}
+.sec-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:5px;color:var(--dim);text-transform:uppercase;margin-bottom:18px}
+.sec-title{font-family:var(--display);font-size:clamp(40px,7vw,80px);letter-spacing:2px;line-height:1;margin-bottom:60px}
+.sec-title em{color:var(--dim);font-style:normal}
+.prices-section{background:var(--bg2);position:relative;overflow:hidden}
+.price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+.price-card{background:var(--bg2);padding:60px 40px;position:relative}
+.pc-icon{font-size:36px;opacity:0.25;margin-bottom:32px;display:block}
+.pc-label{font-family:var(--mono);font-size:10px;letter-spacing:5px;color:var(--dim);text-transform:uppercase;margin-bottom:10px}
+.pc-name{font-family:var(--display);font-size:42px;letter-spacing:2px;margin-bottom:36px}
+.pc-price{font-family:var(--display);font-size:76px;line-height:1;margin-bottom:6px}
+.pc-dur{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);margin-bottom:40px}
+.pc-specs{list-style:none;margin-bottom:50px}
+.pc-specs li{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--dim);padding:13px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.pc-specs li::before{content:'';width:4px;height:4px;background:rgba(255,255,255,0.25);border-radius:50%}
+.btn-book{width:100%;background:transparent;border:1px solid var(--border2);color:#fff;padding:18px;font-size:10px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;font-family:var(--mono);font-weight:700}
+.games-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:40px}
+.game-card{position:relative;height:420px;overflow:hidden;background:#0d0d0d}
+.game-img{width:100%;height:100%;object-fit:cover;filter:grayscale(80%) brightness(0.5)}
+.game-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,transparent 55%);padding:32px;display:flex;flex-direction:column;justify-content:flex-end}
+.game-genre{font-family:var(--mono);font-size:9px;letter-spacing:5px;color:var(--dim);text-transform:uppercase;margin-bottom:10px}
+.game-name{font-family:var(--display);font-size:30px;letter-spacing:2px}
+.lb-teaser{background:var(--bg2);border:1px solid var(--border);padding:40px;display:flex;align-items:center;justify-content:space-between;margin:60px 0 0}
+.contacts-section{background:var(--bg2);border-top:1px solid var(--border)}
+.contacts-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start}
+.contact-block{margin-bottom:36px}
+.contact-label{font-family:var(--mono);font-size:9px;letter-spacing:4px;color:var(--dim);text-transform:uppercase;margin-bottom:12px}
+.contact-val{font-size:16px;font-weight:500}
+.map-box{background:var(--bg3);border:1px solid var(--border);height:280px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+footer{background:var(--bg);border-top:1px solid var(--border);padding:40px 60px;display:flex;justify-content:space-between;align-items:center}
+footer .logo{font-family:var(--display);font-size:18px;letter-spacing:6px}
+/* AUTH */
+.auth-wrap{background:var(--bg);min-height:auto;display:flex;align-items:center;justify-content:center;position:relative;padding:60px 20px;}
+.auth-bg-img{position:absolute;inset:0;background:url('https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=1200&q=80') center/cover;opacity:0.05}
+.auth-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:60px 60px}
+.auth-box{position:relative;z-index:2;width:100%;max-width:500px;padding:20px}
+.auth-card{background:rgba(10,10,10,0.97);border:1px solid var(--border2);padding:64px 54px;position:relative}
+.auth-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:44px}
+.auth-tab{flex:1;background:transparent;border:none;color:var(--dim);padding:16px;font-family:var(--mono);font-size:11px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.auth-tab.active{color:#fff;border-bottom-color:#fff}
+.auth-title{font-family:var(--display);font-size:40px;letter-spacing:5px;margin-bottom:8px;text-align:center}
+.auth-sub{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);text-align:center;margin-bottom:44px;text-transform:uppercase}
+.auth-form{display:flex;flex-direction:column;gap:26px}
+.form-field{display:flex;flex-direction:column;gap:9px}
+.form-field label{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
+.form-field input{background:transparent;border:none;border-bottom:1px solid var(--border2);padding:14px 0;color:#fff;font-size:15px;font-family:var(--body);outline:none}
+.btn-submit{background:#fff;color:#000;border:none;padding:20px;font-weight:700;text-transform:uppercase;letter-spacing:4px;font-size:11px;cursor:pointer;font-family:var(--mono);margin-top:8px}
+.form-tab{display:flex;flex-direction:column;gap:26px}
+.form-tab:not(.active){display:none;}
+/* TABLES */
+.tables-wrap{background:var(--bg);padding:80px 60px}
+.tables-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:var(--border)}
+.table-card{background:var(--bg2);padding:48px 36px;position:relative}
+.tc-icon{font-size:44px;opacity:0.22;margin-bottom:28px;display:block}
+.tc-name{font-family:var(--display);font-size:34px;letter-spacing:2px;margin-bottom:20px}
+.tc-specs{list-style:none;margin-bottom:28px}
+.tc-specs li{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--dim);padding:9px 0;border-bottom:1px solid var(--border)}
+.tc-status{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:8px 16px;border:1px solid}
+.tc-status.available{color:var(--green);border-color:rgba(0,232,122,0.25)}
+.tc-status.occupied{color:var(--red);border-color:rgba(255,59,59,0.25)}
+.tc-status.soon{color:var(--yellow);border-color:rgba(255,200,0,0.25)}
+/* BOOKING */
+.booking-wrap{background:var(--bg);display:flex;align-items:center;justify-content:center;padding:80px 40px}
+.booking-card{background:var(--bg2);border:1px solid var(--border2);padding:64px 54px;max-width:580px;width:100%}
+.booking-title{font-family:var(--display);font-size:40px;letter-spacing:5px;text-align:center;margin-bottom:8px}
+.booking-sub{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);text-align:center;margin-bottom:36px}
+.booking-type-badge{display:flex;align-items:center;justify-content:center;gap:14px;padding:20px;background:var(--dim3);border:1px solid var(--border);margin-bottom:36px}
+.bt-icon{font-size:28px}
+.bt-name{font-family:var(--display);font-size:28px}
+.booking-form{display:flex;flex-direction:column;gap:22px}
+.bf-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.booking-form .form-field input,
+.booking-form .form-field select{background:transparent;border:1px solid var(--border2);padding:14px 16px;color:#fff;width:100%}
+/* PROFILE */
+.profile-wrap{background:var(--bg);padding:80px 60px;position:relative}
+.profile-bg-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--display);font-size:clamp(120px,20vw,280px);color:rgba(255,255,255,0.018);pointer-events:none}
+.profile-inner{position:relative;z-index:2;max-width:1100px;margin:0 auto}
+.profile-top{display:grid;grid-template-columns:auto 1fr auto;gap:40px;align-items:center;padding-bottom:48px;border-bottom:1px solid var(--border);margin-bottom:48px}
+.profile-avatar{width:110px;height:110px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:44px}
+.avatar-ring{position:absolute;inset:-6px;border:1px solid var(--border)}
+.profile-name{font-family:var(--display);font-size:clamp(40px,6vw,72px)}
+.profile-rank{font-family:var(--mono);font-size:11px;letter-spacing:4px;color:var(--dim);display:flex;align-items:center;gap:10px}
+.rank-badge{background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);color:var(--purple);padding:4px 12px;font-size:9px}
+.btn-profile-back{background:transparent;border:1px solid var(--border2);color:var(--dim);padding:14px 24px;font-family:var(--mono);font-size:10px;letter-spacing:2px;cursor:pointer}
+.profile-stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:48px}
+.ps-card{background:var(--bg2);padding:32px 28px;text-align:center}
+.ps-num{font-family:var(--display);font-size:48px;letter-spacing:2px;display:block;margin-bottom:6px}
+.ps-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px}
+.profile-block{background:var(--bg2);border:1px solid var(--border);padding:36px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)}
+.ir-label{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--dim)}
+.clr-green{color:var(--green)} .clr-purple{color:var(--purple)} .clr-blue{color:var(--blue)}
+.recent-booking{display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid var(--border)}
+.profile-actions{display:flex;gap:14px}
+.btn-pa{flex:1;padding:18px;font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;cursor:pointer}
+.btn-pa.primary{background:#fff;color:#000}
+.btn-pa.outline{background:transparent;color:var(--dim);border:1px solid var(--border2)}
+.btn-pa.danger{background:transparent;color:var(--dim);border:1px solid var(--border)}
+/* LEADERBOARD */
+.lb-wrap{background:var(--bg);padding:80px 60px}
+.lb-podium{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;background:var(--border);margin-bottom:2px}
+.podium-card{background:var(--bg2);padding:48px 32px;text-align:center;position:relative}
+.podium-card.first{background:rgba(255,200,0,0.04);border-top:2px solid var(--yellow)}
+.podium-card.second{background:rgba(192,192,192,0.03);border-top:2px solid rgba(192,192,192,0.4)}
+.podium-card.third{background:rgba(205,127,50,0.03);border-top:2px solid rgba(205,127,50,0.4)}
+.podium-place{font-family:var(--display);font-size:80px;opacity:0.08;position:absolute;top:16px;right:20px}
+.podium-avatar{width:70px;height:70px;background:var(--bg3);border:1px solid var(--border2);display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:20px}
+.podium-name{font-family:var(--display);font-size:26px}
+.podium-hours{font-family:var(--display);font-size:36px;margin-top:12px}
+.lb-table-wrap{background:var(--bg2);border:1px solid var(--border)}
+.lb-row{display:grid;grid-template-columns:60px 1fr auto auto;gap:20px;align-items:center;padding:20px 32px;border-bottom:1px solid var(--border)}
+.lb-row.header{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--dim)}
+.lb-num{font-family:var(--display);font-size:28px;color:var(--dim)}
+.badge{display:inline-block;padding:4px 10px;font-family:var(--mono);font-size:9px;letter-spacing:2px;border:1px solid}
+.badge.gray{color:var(--dim);border-color:var(--border2)}
+.badge.blue{color:var(--blue);border-color:rgba(77,166,255,0.3);background:rgba(77,166,255,0.05)}
+.badge.purple{color:var(--purple);border-color:rgba(167,139,250,0.3)}
+/* 404 & 403 */
+.notfound-wrap,.forbidden-wrap{background:var(--bg);min-height:60vh;display:flex;align-items:center;justify-content:center;text-align:center;position:relative;padding:80px 20px}
+.nf-bg-num{position:absolute;font-family:var(--display);font-size:clamp(200px,40vw,500px);color:rgba(255,255,255,0.02);pointer-events:none}
+.nf-title,.fb-title{font-family:var(--display);font-size:clamp(60px,10vw,120px);margin-bottom:20px}
+.fb-title{color:var(--red)}
+/* ADMIN (все блоки видны последовательно) */
+.admin-block{background:var(--bg2);border:1px solid var(--border);margin-bottom:30px;border-radius:0}
+.admin-block-header{background:rgba(255,255,255,0.03);padding:14px 24px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
+.admin-block-content{padding:24px}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.metric-card{background:var(--bg3);border:1px solid var(--border);padding:20px 20px}
+.metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px}
+.metric-card{position:relative}
+.mc-accent-green::before{background:var(--green)} .mc-accent-blue::before{background:var(--blue)} .mc-accent-yellow::before{background:var(--yellow)} .mc-accent-red::before{background:var(--red)}
+.mc-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--dim);margin-bottom:16px}
+.mc-value{font-family:var(--display);font-size:46px;line-height:1;margin-bottom:6px}
+.clr-green{color:var(--green)} .clr-blue{color:var(--blue)} .clr-yellow{color:var(--yellow)}
+.trend-up{color:var(--green)}
+.chart-area{background:var(--bg3);border:1px solid var(--border);padding:20px;margin-bottom:20px}
+.chart-canvas{height:180px;display:flex;align-items:flex-end;gap:3px}
+.bar{flex:1;border-radius:1px 1px 0 0;position:relative}
+.bar-tip{position:absolute;bottom:calc(100%+8px);left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--border2);padding:4px 8px;font-size:9px;white-space:nowrap;opacity:0;pointer-events:none}
+.bar:hover .bar-tip{opacity:1}
+.endpoints-grid{display:grid;gap:10px}
+.ep-row{background:var(--bg3);border:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:18px}
+.ep-method{font-family:var(--mono);font-size:9px;padding:4px 10px;border:1px solid;width:58px;text-align:center}
+.ep-method.GET{color:var(--green);border-color:rgba(0,232,122,0.3)}
+.ep-method.POST{color:var(--blue);border-color:rgba(77,166,255,0.3)}
+.ep-path{font-family:var(--mono);font-size:12px;flex:1}
+.ep-lat{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.admin-table-wrap{background:var(--bg3);border:1px solid var(--border);overflow:auto}
+table{width:100%;border-collapse:collapse}
+th{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--dim);padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-weight:400}
+td{padding:12px 16px;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)}
+.log-terminal{background:#010101;border:1px solid var(--border);padding:20px;font-family:var(--mono);font-size:11px;height:300px;overflow-y:auto}
+.log-line{display:flex;gap:16px;padding:2px 0}
+.log-time{color:rgba(255,255,255,0.18);min-width:80px}
+.log-level.INFO{color:var(--blue)} .log-level.WARN{color:var(--yellow)} .log-level.ERROR{color:var(--red)}
+</style>
+</head>
+<body>
+
+<!-- ======================== 1. ГЛАВНАЯ ======================== -->
+<div class="figma-label">01 — Главная / Hero + Тарифы + Игры + Контакты</div>
+<div class="page-block">
+  <section class="hero">
+    <div class="hero-bg"></div><div class="hero-grad"></div><div class="hero-grid"></div>
+    <div class="hero-vline"></div><div class="hero-vline"></div><div class="hero-vline"></div><div class="hero-vline"></div>
+    <div class="hero-content">
+      <div class="hero-badge">Москва · Премиальный Gaming Club</div>
+      <h1 class="hero-title">ТВОЙ ПРЕДЕЛ<span class="muted">ТОЛЬКО ВЫСОКИЙ</span>FPS</h1>
+      <p class="hero-sub">Premium Gaming · 24 / 7 · Круглосуточно</p>
+      <div class="hero-btns"><button class="btn-hero primary">Забронировать стол</button><button class="btn-hero outline">Смотреть тарифы</button></div>
+    </div>
+  </section>
+  <div class="stats">
+    <div class="stat"><span class="stat-n">48</span><span class="stat-l">Игровых мест</span></div>
+    <div class="stat"><span class="stat-n">360</span><span class="stat-l">Гц мониторы</span></div>
+    <div class="stat"><span class="stat-n">100+</span><span class="stat-l">Игр в библиотеке</span></div>
+    <div class="stat"><span class="stat-n">24/7</span><span class="stat-l">Без выходных</span></div>
+  </div>
+  <section class="section prices-section">
+    <p class="sec-eyebrow">01 — Тарифы</p><h2 class="sec-title">Выбери свой <em>уровень</em></h2>
+    <div class="price-grid">
+      <div class="price-card"><span class="pc-icon">◈</span><div class="pc-label">Тариф 01</div><div class="pc-name">Стандарт</div><div class="pc-price">150₽</div><div class="pc-dur">за 1 час</div><ul class="pc-specs"><li>RTX 3060 Ti</li><li>144Hz · 1080p</li></ul><button class="btn-book">Забронировать</button></div>
+      <div class="price-card"><span class="pc-icon">❖</span><div class="pc-label">Тариф 02</div><div class="pc-name">Pro Zone</div><div class="pc-price">250₽</div><div class="pc-dur">за 1 час</div><ul class="pc-specs"><li>RTX 4070</li><li>240Hz · 1440p</li></ul><button class="btn-book">Забронировать</button></div>
+      <div class="price-card"><span class="pc-icon">🔱</span><div class="pc-label">Тариф 03</div><div class="pc-name">VIP Lounge</div><div class="pc-price">400₽</div><div class="pc-dur">за 1 час</div><ul class="pc-specs"><li>RTX 4090</li><li>360Hz · 4K</li></ul><button class="btn-book">Забронировать</button></div>
+    </div>
+  </section>
+  <section class="section games-section" style="padding-top:0">
+    <p class="sec-eyebrow">02 — Библиотека</p><h2 class="sec-title">Игры <em>/ Games</em></h2>
+    <div class="games-grid">
+      <div class="game-card"><img class="game-img" src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/730/library_600x900_2x.jpg" alt="CS2"><div class="game-overlay"><span class="game-genre">Tactical Shooter</span><h3 class="game-name">Counter-Strike 2</h3></div></div>
+      <div class="game-card"><img class="game-img" src="https://cdn.akamai.steamstatic.com/apps/dota2/images/dota2_social.jpg" alt="Dota2"><div class="game-overlay"><span class="game-genre">MOBA</span><h3 class="game-name">Dota 2</h3></div></div>
+      <div class="game-card"><img class="game-img" src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1091500/library_600x900_2x.jpg" alt="CP2077"><div class="game-overlay"><span class="game-genre">Action RPG</span><h3 class="game-name">Cyberpunk 2077</h3></div></div>
+    </div>
+    <div class="lb-teaser"><div class="lb-teaser-left"><div class="lb-teaser-title">Таблица рейтинга</div><div class="lb-teaser-sub">Топ игроков клуба за этот месяц</div></div><div class="lb-teaser-right">Смотреть →</div></div>
+  </section>
+  <section class="section contacts-section">
+    <p class="sec-eyebrow">03 — Контакты</p><h2 class="sec-title">Найди нас <em>/ Find Us</em></h2>
+    <div class="contacts-grid">
+      <div><div class="contact-block"><div class="contact-label">Адрес</div><div class="contact-val">Москва, ул. Пушкина, д. 1</div></div><div class="contact-block"><div class="contact-label">Телефон</div><div class="contact-val">+7 (495) 123-45-67</div></div></div>
+      <div><div class="map-box"><div class="map-icon">◉</div><div class="map-txt">Москва, ул. Пушкина</div></div></div>
+    </div>
+  </section>
+  <footer><div class="logo">CYBER<span>LOUNGE</span></div><div class="footer-copy">© 2025 CyberLounge</div><div class="footer-socials"><a href="#">Telegram</a><a href="#">VK</a><a href="#">Discord</a></div></footer>
+</div>
+
+<!-- ======================== 2. АВТОРИЗАЦИЯ (ВХОД) ======================== -->
+<div class="figma-label">02 — Вход / Логин</div>
+<div class="auth-wrap" style="padding:40px 20px;">
+  <div class="auth-card" style="margin:0 auto">
+    <div class="auth-tabs"><button class="auth-tab active">Вход</button><button class="auth-tab">Регистрация</button></div>
+    <div class="form-tab active">
+      <div class="auth-title">ВХОД</div><div class="auth-sub">Добро пожаловать обратно</div>
+      <div class="auth-form"><div class="form-field"><label>Email</label><input placeholder="example@mail.com"></div><div class="form-field"><label>Пароль</label><input type="password" placeholder="••••••••"></div><button class="btn-submit">Войти</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== 3. РЕГИСТРАЦИЯ ======================== -->
+<div class="figma-label">03 — Регистрация</div>
+<div class="auth-wrap" style="padding:40px 20px;">
+  <div class="auth-card" style="margin:0 auto">
+    <div class="auth-tabs"><button class="auth-tab">Вход</button><button class="auth-tab active">Регистрация</button></div>
+    <div class="form-tab active">
+      <div class="auth-title">РЕГИСТРАЦИЯ</div><div class="auth-sub">Присоединяйся к лучшим</div>
+      <div class="auth-form"><div class="form-field"><label>Никнейм</label><input placeholder="Gamer_777"></div><div class="form-field"><label>Телефон</label><input placeholder="+7 (900) 000-00-00"></div><div class="form-field"><label>Email</label><input placeholder="example@mail.com"></div><div class="form-field"><label>Пароль</label><input type="password" placeholder="••••••••"></div><button class="btn-submit">Создать аккаунт</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== 4. ВЫБОР СТОЛА + БРОНИРОВАНИЕ ======================== -->
+<div class="figma-label">04 — Выбор стола & Форма бронирования</div>
+<div class="tables-wrap" style="padding:40px 60px">
+  <p class="sec-eyebrow">Выбери место</p><h1 style="font-family:var(--display);font-size:clamp(40px,6vw,72px);margin-bottom:40px">Выбор стола <span style="color:var(--dim)">/ Select PC</span></h1>
+  <div class="tables-grid">
+    <div class="table-card"><span class="tc-icon">◈</span><div class="tc-name">Стандарт #1</div><ul class="tc-specs"><li>RTX 3060 Ti</li><li>144Hz · 1080p</li></ul><span class="tc-status available">Свободен</span></div>
+    <div class="table-card occupied"><span class="tc-icon">◈</span><div class="tc-name">Стандарт #2</div><ul class="tc-specs"><li>RTX 3060 Ti</li><li>144Hz · 1080p</li></ul><span class="tc-status occupied">Занят</span></div>
+    <div class="table-card"><span class="tc-icon">❖</span><div class="tc-name">Pro Zone #1</div><ul class="tc-specs"><li>RTX 4070</li><li>240Hz · 1440p</li></ul><span class="tc-status available">Свободен</span></div>
+    <div class="table-card"><span class="tc-icon">❖</span><div class="tc-name">Pro Zone #2</div><ul class="tc-specs"><li>RTX 4070</li><li>240Hz · 1440p</li></ul><span class="tc-status soon">Скоро</span></div>
+    <div class="table-card"><span class="tc-icon">🔱</span><div class="tc-name">VIP Lounge #1</div><ul class="tc-specs"><li>RTX 4090</li><li>360Hz · 4K</li></ul><span class="tc-status available">Свободен</span></div>
+    <div class="table-card"><span class="tc-icon">🔱</span><div class="tc-name">VIP Lounge #2</div><ul class="tc-specs"><li>RTX 4090</li><li>360Hz · 4K</li></ul><span class="tc-status available">Свободен</span></div>
+  </div>
+  <div class="booking-card" style="margin-top:60px;max-width:100%">
+    <div class="booking-title">Форма бронирования</div><div class="booking-type-badge"><span class="bt-icon">◈</span><span class="bt-name">Стандарт</span></div>
+    <div class="booking-form"><div class="form-field"><label>Ваше имя</label><input placeholder="Иван Петров"></div><div class="bf-row"><div class="form-field"><label>Дата</label><input type="date"></div><div class="form-field"><label>Время</label><select><option>18:00</option></select></div></div><div class="form-field"><label>Количество часов</label><select><option>2 часа</option></select></div><button class="btn-submit">Забронировать</button></div>
+  </div>
+</div>
+
+<!-- ======================== 5. ПРОФИЛЬ ======================== -->
+<div class="figma-label">05 — Личный кабинет / Профиль</div>
+<div class="profile-wrap" style="padding:40px 60px">
+  <div class="profile-inner">
+    <div class="profile-top"><div class="profile-avatar-wrap"><div class="profile-avatar">G7</div><div class="avatar-ring"></div></div><div class="profile-meta"><div class="profile-name">Gamer_777</div><div class="profile-rank"><span>Участник клуба</span><span class="rank-badge">PRO RANK</span></div></div><div class="profile-back-btn"><button class="btn-profile-back">← На главную</button></div></div>
+    <div class="profile-stats-row"><div class="ps-card"><span class="ps-num">12</span><span class="ps-label">Бронирований</span></div><div class="ps-card"><span class="ps-num clr-green">2 400₽</span><span class="ps-label">Баланс</span></div><div class="ps-card"><span class="ps-num">48ч</span><span class="ps-label">Часов в клубе</span></div><div class="ps-card"><span class="ps-num clr-purple">#14</span><span class="ps-label">Место в рейтинге</span></div></div>
+    <div class="profile-grid"><div class="profile-block"><div class="profile-block-title">Личные данные</div><div class="info-row"><span class="ir-label">Никнейм</span><span class="ir-val">Gamer_777</span></div><div class="info-row"><span class="ir-label">Email</span><span class="ir-val">gamer@mail.com</span></div><div class="info-row"><span class="ir-label">Телефон</span><span class="ir-val">+7 (900) 000-00-00</span></div></div><div class="profile-block"><div class="profile-block-title">Последние бронирования</div><div class="recent-booking"><span class="rb-icon">❖</span><div class="rb-info"><div class="rb-name">Pro Zone #1</div><div class="rb-date">28.04.2025 · 2 часа</div></div><span class="rb-sum">500₽</span></div><div class="recent-booking"><span class="rb-icon">🔱</span><div class="rb-info"><div class="rb-name">VIP Lounge #2</div><div class="rb-date">20.04.2025 · 3 часа</div></div><span class="rb-sum">1200₽</span></div></div></div>
+    <div class="profile-actions"><button class="btn-pa primary">Забронировать стол</button><button class="btn-pa outline">Редактировать</button><button class="btn-pa danger">Выйти</button></div>
+  </div>
+</div>
+
+<!-- ======================== 6. РЕЙТИНГ ======================== -->
+<div class="figma-label">06 — Таблица рейтинга / Leaderboard</div>
+<div class="lb-wrap" style="padding:40px 60px">
+  <p class="sec-eyebrow">Апрель 2025</p><h1 style="font-family:var(--display);font-size:clamp(40px,7vw,80px);margin-bottom:40px">Таблица рейтинга <span style="color:var(--dim)">/ Top Players</span></h1>
+  <div class="lb-podium">
+    <div class="podium-card second"><div class="podium-place">2</div><div class="podium-avatar">VP</div><div class="podium-name">VoidWalker</div><div class="podium-hours">89ч</div></div>
+    <div class="podium-card first"><div class="podium-place">1</div><div class="podium-avatar">PP</div><div class="podium-name">ProPlayer99</div><div class="podium-hours">124ч</div></div>
+    <div class="podium-card third"><div class="podium-place">3</div><div class="podium-avatar">SS</div><div class="podium-name">ShadowSniper</div><div class="podium-hours">67ч</div></div>
+  </div>
+  <div class="lb-table-wrap">
+    <div class="lb-row header"><span>#</span><span>Игрок</span><span>Тариф</span><span>Часов</span></div>
+    <div class="lb-row"><span class="lb-num">4</span><div><div class="lb-name">IronFist_23</div><div class="lb-game">Стандарт · Apex</div></div><span><div class="badge gray">STD</div></span><span class="lb-hours">52ч</span></div>
+    <div class="lb-row"><span class="lb-num">5</span><div><div class="lb-name">NeonBlade</div><div class="lb-game">Pro Zone · CS2</div></div><span><div class="badge blue">PRO</div></span><span class="lb-hours">48ч</span></div>
+    <div class="lb-row"><span class="lb-num">6</span><div><div class="lb-name">Gamer_777</div><div class="lb-game">Pro Zone · Valorant</div></div><span><div class="badge blue">PRO</div></span><span class="lb-hours">48ч</span></div>
+  </div>
+</div>
+
+<!-- ======================== 7. АДМИН-ПАНЕЛЬ (ВСЕ РАЗДЕЛЫ ОТДЕЛЬНО) ======================== -->
+<div class="figma-label">07 — Админ-панель: Метрики</div>
+<div class="admin-block">
+  <div class="admin-block-header">◈ Метрики системы</div>
+  <div class="admin-block-content">
+    <div class="metrics-grid">
+      <div class="metric-card mc-accent-green"><div class="mc-label">RPS</div><div class="mc-value clr-green">342</div><div class="trend-up">↑ +12%</div></div>
+      <div class="metric-card mc-accent-blue"><div class="mc-label">P99 Latency</div><div class="mc-value clr-blue">18ms</div></div>
+      <div class="metric-card mc-accent-yellow"><div class="mc-label">CPU Usage</div><div class="mc-value clr-yellow">24%</div></div>
+      <div class="metric-card mc-accent-red"><div class="mc-label">RAM</div><div class="mc-value">312MB</div></div>
+    </div>
+    <div class="chart-area"><div class="chart-title" style="font-family:var(--mono);font-size:10px;margin-bottom:16px">RPS — последние 24 часа</div><div class="chart-canvas" id="staticChart1"></div></div>
+    <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="metric-card"><div class="mc-label">Cache Hit Rate</div><div class="mc-value clr-green">87%</div></div>
+      <div class="metric-card"><div class="mc-label">Goroutines</div><div class="mc-value clr-blue">148</div></div>
+      <div class="metric-card"><div class="mc-label">Uptime</div><div class="mc-value">14д 6ч</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="figma-label">08 — Админ-панель: Эндпоинты API</div>
+<div class="admin-block">
+  <div class="admin-block-header">⟐ Управление API / Эндпоинты</div>
+  <div class="admin-block-content">
+    <div class="endpoints-grid" id="staticEndpoints"></div>
+  </div>
+</div>
+
+<div class="figma-label">09 — Админ-панель: Redis Cache</div>
+<div class="admin-block">
+  <div class="admin-block-header">⬡ Redis Cache — ключи и статистика</div>
+  <div class="admin-block-content">
+    <div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+      <div class="metric-card"><div class="mc-value">1 248</div><div class="mc-label">Ключей</div></div>
+      <div class="metric-card"><div class="mc-value clr-green">87%</div><div class="mc-label">Hit Rate</div></div>
+      <div class="metric-card"><div class="mc-value">42MB</div><div class="mc-label">Использовано</div></div>
+      <div class="metric-card"><div class="mc-value clr-blue">256MB</div><div class="mc-label">Лимит</div></div>
+    </div>
+    <div class="admin-table-wrap">
+      <table><thead><tr><th>Ключ</th><th>Тип</th><th>TTL</th><th>Размер</th></tr></thead><tbody id="staticRedisTbl"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<div class="figma-label">10 — Админ-панель: Пользователи</div>
+<div class="admin-block">
+  <div class="admin-block-header">◎ Пользователи клуба</div>
+  <div class="admin-block-content">
+    <div class="admin-table-wrap">
+      <table><thead><tr><th>ID</th><th>Никнейм</th><th>Email</th><th>Баланс</th><th>Бронирований</th><th>Статус</th></tr></thead><tbody id="staticUsersTbl"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<div class="figma-label">11 — Админ-панель: Бронирования</div>
+<div class="admin-block">
+  <div class="admin-block-header">◷ Бронирования столов</div>
+  <div class="admin-block-content">
+    <div class="admin-table-wrap">
+      <table><thead><tr><th>ID</th><th>Пользователь</th><th>Стол</th><th>Тариф</th><th>Дата / Время</th><th>Сумма</th><th>Статус</th></tr></thead><tbody id="staticBookingsTbl"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<div class="figma-label">12 — Админ-панель: Live Логи</div>
+<div class="admin-block">
+  <div class="admin-block-header">≡ Логи сервера (live-поток)</div>
+  <div class="admin-block-content">
+    <div class="log-terminal" id="staticLogTerminal"></div>
+  </div>
+</div>
+
+<!-- ======================== 8. 404 ======================== -->
+<div class="figma-label">13 — 404 Not Found</div>
+<div class="notfound-wrap"><div class="nf-bg-num">404</div><div class="nf-content"><div class="nf-title">СТРАНИЦА<br>НЕ НАЙДЕНА</div><div class="nf-sub">Такой страницы не существует</div><button class="btn-hero primary">← На главную</button></div></div>
+
+<!-- ======================== 9. 403 ======================== -->
+<div class="figma-label">14 — 403 Forbidden</div>
+<div class="forbidden-wrap"><div class="nf-content"><div class="fb-title">403</div><div class="fb-sub">Доступ запрещён</div><div class="fb-msg">Бронирование доступно только из сети клуба.<br>Обратитесь к администратору.</div><button class="btn-hero primary">← На главную</button></div></div>
+
+<script>
+// Функции для генерации статических данных в админ-блоках
+function renderStaticChart(containerId) {
+  const el = document.getElementById(containerId); if(!el) return;
+  el.innerHTML = '';
+  for(let i=0;i<24;i++){ const v=60+Math.floor(Math.random()*220); const bar=document.createElement('div'); bar.className='bar'; bar.style.cssText=`height:${Math.round(v/280*100)}px;background:rgba(0,232,122,0.6);flex:1`; const tip=document.createElement('div'); tip.className='bar-tip'; tip.textContent=v+' rps'; bar.appendChild(tip); el.appendChild(bar); }
+}
+function renderStaticEndpoints() {
+  const eps = [{m:'GET',p:'/api/v1/health',lat:'2ms'},{m:'POST',p:'/api/v1/auth/login',lat:'45ms'},{m:'GET',p:'/api/v1/tables',lat:'12ms'},{m:'POST',p:'/api/v1/bookings',lat:'34ms'},{m:'GET',p:'/api/v1/prices',lat:'8ms'}];
+  const container = document.getElementById('staticEndpoints');
+  if(container) container.innerHTML = eps.map(e => `<div class="ep-row"><span class="ep-method ${e.m}">${e.m}</span><span class="ep-path">${e.p}</span><span class="ep-lat">${e.lat}</span></div>`).join('');
+}
+function renderStaticRedis() {
+  const keys = [{k:'user:session:a1b2c3',t:'STRING',ttl:'1800s',sz:'248B'},{k:'tables:availability',t:'STRING',ttl:'30s',sz:'1.2KB'},{k:'prices:all',t:'STRING',ttl:'3600s',sz:'856B'},{k:'booking:list:2025',t:'LIST',ttl:'120s',sz:'4.8KB'}];
+  const tbody = document.getElementById('staticRedisTbl');
+  if(tbody) tbody.innerHTML = keys.map(k => `<tr><td style="color:rgba(255,255,255,0.7)">${k.k}</td><td><span class="badge gray">${k.t}</span></td><td>${k.ttl}</td><td>${k.sz}</td></tr>`).join('');
+}
+function renderStaticUsers() {
+  const users = [{id:1001,name:'Gamer_777',email:'gamer@mail.com',bal:'2 400₽',bk:12,st:'active'},{id:1002,name:'ProPlayer99',email:'pro@gmail.com',bal:'850₽',bk:47,st:'active'},{id:1003,name:'VoidWalker',email:'void@mail.ru',bal:'5 200₽',bk:89,st:'vip'}];
+  const tbody = document.getElementById('staticUsersTbl');
+  if(tbody) tbody.innerHTML = users.map(u => `<tr><td>#${u.id}</td><td style="font-weight:500">${u.name}</td><td style="color:var(--dim)">${u.email}</td><td>${u.bal}</td><td style="text-align:center">${u.bk}</td><td><span class="badge green">Активен</span></td></tr>`).join('');
+}
+function renderStaticBookings() {
+  const bookings = [{id:'B-2841',u:'Gamer_777',tbl:'Pro Zone #1',tp:'pro',dt:'30.04.2025 14:00',sum:'500₽',st:'active'},{id:'B-2840',u:'VoidWalker',tbl:'VIP Lounge #1',tp:'vip',dt:'30.04.2025 12:00',sum:'1200₽',st:'active'},{id:'B-2839',u:'ProPlayer99',tbl:'Стандарт #1',tp:'standard',dt:'30.04.2025 10:00',sum:'150₽',st:'done'}];
+  const tbody = document.getElementById('staticBookingsTbl');
+  if(tbody) tbody.innerHTML = bookings.map(b => `<tr><td>${b.id}</td><td>${b.u}</td><td>${b.tbl}</td><td><span class="badge blue">${b.tp}</span></td><td style="color:var(--dim)">${b.dt}</td><td style="font-weight:500">${b.sum}</td><td><span class="badge green">Активно</span></td></tr>`).join('');
+}
+function renderStaticLogs() {
+  const logContainer = document.getElementById('staticLogTerminal');
+  if(!logContainer) return;
+  const sampleLogs = [
+    {t:new Date().toLocaleTimeString(),lv:'INFO',m:'GET /api/v1/tables → 200 OK (12ms) [cache:HIT]'},
+    {t:new Date().toLocaleTimeString(),lv:'WARN',m:'Rate limit approaching for IP 185.42.x.x (88/100 req/min)'},
+    {t:new Date().toLocaleTimeString(),lv:'INFO',m:'POST /api/v1/auth/login → 200 OK (45ms) user:1042'},
+    {t:new Date().toLocaleTimeString(),lv:'DEBUG',m:'Redis GET tables:availability → HIT (0.3ms)'},
+    {t:new Date().toLocaleTimeString(),lv:'ERROR',m:'Java backend timeout: /api/v1/users/1099 (>5000ms) — circuit breaker open'},
+  ];
+  logContainer.innerHTML = sampleLogs.map(l => `<div class="log-line"><span class="log-time">${l.t}</span><span class="log-level ${l.lv}">${l.lv}</span><span class="log-msg">${l.m}</span></div>`).join('');
+}
+
+// Запускаем генерацию
+renderStaticChart('staticChart1');
+renderStaticEndpoints();
+renderStaticRedis();
+renderStaticUsers();
+renderStaticBookings();
+renderStaticLogs();
+</script>
+</body>
+</html>
