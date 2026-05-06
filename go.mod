@@ -5,15 +5,13 @@ go 1.26
 require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/uuid v1.6.0
-	github.com/shadowslik/go-ipfilter v0.0.0
+	github.com/shadowslik/go-ipfilter v0.1.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
 	go.uber.org/zap v1.28.0
 	golang.org/x/time v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 )
-
-replace github.com/shadowslik/go-ipfilter => ../go-ipfilter
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
