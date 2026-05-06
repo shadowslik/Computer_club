@@ -1,19 +1,15 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	lruexpirable "github.com/hashicorp/golang-lru/v2/expirable"
-	"github.com/yl2chen/cidranger"
+	ipfilter "github.com/shadowslik/go-ipfilter"
 	"go.uber.org/zap"
 )
 
@@ -21,20 +17,13 @@ type ipFile struct {
 	IPs []string `json:"ip"`
 }
 
-type ipRange struct {
-	start net.IP
-	end   net.IP
-	raw   string
-}
-
+// IpRepoImpl stores IP lists on disk and provides fast in-memory lookup.
+// Matching is delegated to github.com/shadowslik/go-ipfilter which uses a
+// Patricia trie for CIDR subnets and an expirable LRU cache for hot IPs.
 type IpRepoImpl struct {
 	mu       sync.RWMutex
 	rawList  []string
-	exactIPs map[string]struct{}
-	ranger   cidranger.Ranger
-	ranges   []ipRange
-
-	cache    *lruexpirable.LRU[string, bool]
+	matcher  *ipfilter.Matcher
 	fileName string
 	watcher  *fsnotify.Watcher
 	log      *zap.Logger
@@ -43,7 +32,7 @@ type IpRepoImpl struct {
 func NewIpRepoImpl(file string, cacheSize int, cacheTTL time.Duration, log *zap.Logger) (*IpRepoImpl, error) {
 	repo := &IpRepoImpl{
 		fileName: file,
-		cache:    lruexpirable.NewLRU[string, bool](cacheSize, nil, cacheTTL),
+		matcher:  ipfilter.New(cacheSize, cacheTTL),
 		log:      log,
 	}
 	if err := repo.loadFromFile(); err != nil {
@@ -56,44 +45,16 @@ func NewIpRepoImpl(file string, cacheSize int, cacheTTL time.Duration, log *zap.
 }
 
 func (repo *IpRepoImpl) loadFromFile() error {
-	rawList, err := readIPFile(repo.fileName)
+	entries, err := readIPFile(repo.fileName)
 	if err != nil {
 		return err
 	}
-	exactIPs := make(map[string]struct{})
-	ranger := cidranger.NewPCTrieRanger()
-	var ranges []ipRange
-
-	for _, entry := range rawList {
-		entry = strings.TrimSpace(entry)
-		if strings.Contains(entry, "/") {
-			_, network, err := net.ParseCIDR(entry)
-			if err == nil {
-				ranger.Insert(cidranger.NewBasicRangerEntry(*network))
-			}
-		} else if strings.Contains(entry, "-") {
-			parts := strings.SplitN(entry, "-", 2)
-			if len(parts) == 2 {
-				start := net.ParseIP(strings.TrimSpace(parts[0]))
-				end := net.ParseIP(strings.TrimSpace(parts[1]))
-				if start != nil && end != nil {
-					ranges = append(ranges, ipRange{start: start, end: end, raw: entry})
-				}
-			}
-		} else {
-			if net.ParseIP(entry) != nil {
-				exactIPs[entry] = struct{}{}
-			}
-		}
+	if err := repo.matcher.Reset(entries); err != nil {
+		return fmt.Errorf("ipfilter reset: %w", err)
 	}
-
 	repo.mu.Lock()
-	defer repo.mu.Unlock()
-	repo.rawList = rawList
-	repo.exactIPs = exactIPs
-	repo.ranger = ranger
-	repo.ranges = ranges
-	repo.cache.Purge()
+	repo.rawList = entries
+	repo.mu.Unlock()
 	return nil
 }
 
@@ -140,75 +101,24 @@ func (repo *IpRepoImpl) GetAll() (map[string]bool, error) {
 	return result, nil
 }
 
-func (repo *IpRepoImpl) IsAllowed(ctx context.Context, ipStr string) (bool, error) {
-	if cached, ok := repo.cache.Get(ipStr); ok {
-		return cached, nil
-	}
-
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return false, fmt.Errorf("invalid IP: %s", ipStr)
-	}
-
-	repo.mu.RLock()
-	defer repo.mu.RUnlock()
-
-	// 1. Exact match — O(1)
-	normalised := ip.String()
-	if _, ok := repo.exactIPs[normalised]; ok {
-		repo.cache.Add(ipStr, true)
-		return true, nil
-	}
-
-	// 2. CIDR via radix trie — O(log n)
-	entries, err := repo.ranger.ContainingNetworks(ip)
-	if err == nil && len(entries) > 0 {
-		repo.cache.Add(ipStr, true)
-		return true, nil
-	}
-
-	// 3. IP ranges — O(n ranges), typically very few
-	for _, r := range repo.ranges {
-		if bytes.Compare(ip, r.start) >= 0 && bytes.Compare(ip, r.end) <= 0 {
-			repo.cache.Add(ipStr, true)
-			return true, nil
-		}
-	}
-
-	repo.cache.Add(ipStr, false)
-	return false, nil
+func (repo *IpRepoImpl) IsAllowed(_ context.Context, ipStr string) (bool, error) {
+	return repo.matcher.Match(ipStr)
 }
 
-func (repo *IpRepoImpl) Add(ctx context.Context, ip string) error {
+func (repo *IpRepoImpl) Add(_ context.Context, ip string) error {
+	if err := repo.matcher.Add(ip); err != nil {
+		return err
+	}
 	repo.mu.Lock()
 	repo.rawList = append(repo.rawList, ip)
-	// rebuild index for the new entry
-	if strings.Contains(ip, "/") {
-		_, network, err := net.ParseCIDR(ip)
-		if err == nil {
-			repo.ranger.Insert(cidranger.NewBasicRangerEntry(*network))
-		}
-	} else if strings.Contains(ip, "-") {
-		parts := strings.SplitN(ip, "-", 2)
-		if len(parts) == 2 {
-			start := net.ParseIP(strings.TrimSpace(parts[0]))
-			end := net.ParseIP(strings.TrimSpace(parts[1]))
-			if start != nil && end != nil {
-				repo.ranges = append(repo.ranges, ipRange{start: start, end: end, raw: ip})
-			}
-		}
-	} else {
-		if parsed := net.ParseIP(ip); parsed != nil {
-			repo.exactIPs[parsed.String()] = struct{}{}
-		}
-	}
-	repo.cache.Purge()
 	err := repo.saveToFile()
 	repo.mu.Unlock()
 	return err
 }
 
-func (repo *IpRepoImpl) Remove(ctx context.Context, ip string) error {
+func (repo *IpRepoImpl) Remove(_ context.Context, ip string) error {
+	repo.matcher.Remove(ip)
+
 	repo.mu.Lock()
 	filtered := repo.rawList[:0]
 	for _, s := range repo.rawList {
@@ -217,14 +127,9 @@ func (repo *IpRepoImpl) Remove(ctx context.Context, ip string) error {
 		}
 	}
 	repo.rawList = filtered
-	repo.cache.Purge()
 	err := repo.saveToFile()
 	repo.mu.Unlock()
-	if err != nil {
-		return err
-	}
-	// full rebuild needed for ranger (no remove in cidranger v1)
-	return repo.loadFromFile()
+	return err
 }
 
 func (repo *IpRepoImpl) saveToFile() error {
