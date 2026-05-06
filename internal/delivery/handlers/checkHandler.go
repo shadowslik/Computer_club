@@ -1,175 +1,112 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
-	"log/slog"
 	"net"
 	"net/http"
-	"proxy/internal/usecase"
+	"proxy/pkg/utils"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
+type ipCheckUseCase interface {
+	IsAllowed(ctx context.Context, ip string) (bool, error)
+}
+
+type denialsRecorder interface {
+	Record(ip, reason string)
+}
+
+// CheckIpResponse describes the result of an IP membership check.
 type CheckIpResponse struct {
-	Ip      string `json:"ip"`
-	List    string `json:"list"`
-	Message string `json:"message"`
+	IP      string `json:"ip"      example:"192.168.1.1"`
+	List    string `json:"list"    example:"white"          enums:"white,black,gray,none"`
+	Message string `json:"message" example:"доступ разрешён"`
 }
 
 type CheckIpHandler struct {
-	whiteList *usecase.HTTPUseCase
-	blackList *usecase.HTTPUseCase
-	grayList  *usecase.HTTPUseCase
-	logger    *slog.Logger
+	whiteList ipCheckUseCase
+	blackList ipCheckUseCase
+	grayList  ipCheckUseCase
+	log       *zap.Logger
+	denials   denialsRecorder
 }
 
 func NewCheckIpHandler(
-	whiteList *usecase.HTTPUseCase,
-	blackList *usecase.HTTPUseCase,
-	grayList *usecase.HTTPUseCase,
-	logger *slog.Logger) *CheckIpHandler {
+	whiteList, blackList, grayList ipCheckUseCase,
+	log *zap.Logger,
+	denials denialsRecorder,
+) *CheckIpHandler {
 	return &CheckIpHandler{
 		whiteList: whiteList,
 		blackList: blackList,
 		grayList:  grayList,
-		logger:    logger,
+		log:       log,
+		denials:   denials,
 	}
 }
 
+// CheckIp godoc
+// @Summary      Проверить принадлежность IP к спискам
+// @Description  Определяет, в каком списке находится IP-адрес (black/gray/white/none).
+// @Description  Порядок проверки: blacklist → graylist → whitelist → none.
+// @Description  IP можно передать через query-параметр, тело запроса (JSON-строка) или он будет взят из RemoteAddr.
+// @Tags         IP-управление
+// @Produce      json
+// @Param        ip   query     string  false  "Проверяемый IP-адрес"  example(192.168.1.1)
+// @Success      200  {object}  CheckIpResponse       "Результат проверки"
+// @Failure      400  {object}  domain.ErrorResponse  "Невалидный IP-адрес"
+// @Failure      500  {object}  domain.ErrorResponse  "Внутренняя ошибка"
+// @Router       /ip/check [get]
 func (h *CheckIpHandler) CheckIp(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		respondWithError(w, http.StatusMethodNotAllowed, "only GET")
-		return
-	}
-
-	var err error
-	var ip string
-
-	ip = r.URL.Query().Get("ip")
+	ip := r.URL.Query().Get("ip")
 
 	if ip == "" && r.Body != nil {
-		err = json.NewDecoder(r.Body).Decode(&ip)
-		if err != nil {
-
-			respondWithError(w, http.StatusBadRequest, "invalid json")
-			return
+		var s string
+		if err := json.NewDecoder(r.Body).Decode(&s); err == nil {
+			ip = strings.TrimSpace(s)
 		}
-
-		ip = strings.TrimSpace(ip)
 	}
 
 	if ip == "" {
-
+		var err error
 		ip, _, err = net.SplitHostPort(r.RemoteAddr)
-
 		if err != nil {
-			h.logger.Error(err.Error())
-			respondWithError(w, http.StatusInternalServerError, "invalid remote address")
-			return
-		}
-
-		if ip == "" {
-			ip = GetRealIp(r)
+			ip = utils.GetRealIP(r)
 		}
 	}
 
-	if ip == "" {
-		respondWithError(w, http.StatusInternalServerError, "invalid remote address")
+	if ip == "" || net.ParseIP(ip) == nil {
+		respondWithError(w, http.StatusBadRequest, "невалидный IP-адрес")
 		return
 	}
 
-	if net.ParseIP(ip) == nil {
-		respondWithError(w, http.StatusInternalServerError, "invalid remote address")
-		return
-	}
+	list, message := h.resolveList(r.Context(), ip)
 
-	var list string
-	var message string
-
-	list, message = h.GetListIp(r, ip)
-
-	if list == "black" || list == "none" {
-		h.logger.Info(
-			"IP", ip,
-			"list", list,
-			"URL", r.RequestURI,
-			"message", message,
+	if list != "white" {
+		h.log.Info("IP check",
+			zap.String("ip", ip),
+			zap.String("list", list),
+			zap.String("url", r.RequestURI),
 		)
 	}
 
-	if list == "white" || list == "none" {
-		h.logger.Info(
-			"IP", ip,
-			"list", list,
-			"URL", r.RequestURI,
-			"message", message,
-		)
-	}
-
-	response := CheckIpResponse{
-		Ip:      ip,
-		List:    list,
-		Message: message,
-	}
-
-	respondWithJSON(w, http.StatusOK, response)
+	respondWithJSON(w, http.StatusOK, CheckIpResponse{IP: ip, List: list, Message: message})
 }
 
-func GetRealIp(r *http.Request) string {
-
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		ips := strings.Split(xff, ",")
-		if len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
-		}
+func (h *CheckIpHandler) resolveList(ctx context.Context, ip string) (string, string) {
+	if ok, _ := h.blackList.IsAllowed(ctx, ip); ok {
+		h.denials.Record(ip, "blacklist")
+		return "black", "доступ запрещён — IP в чёрном списке"
 	}
-
-	if xrip := r.Header.Get("X-Real-Ip"); xrip != "" {
-		return xrip
+	if ok, _ := h.grayList.IsAllowed(ctx, ip); ok {
+		h.denials.Record(ip, "graylist")
+		return "gray", "необходимо пройти CAPTCHA"
 	}
-
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+	if ok, _ := h.whiteList.IsAllowed(ctx, ip); ok {
+		return "white", "доступ разрешён"
 	}
-	return ip
-}
-
-func (h *CheckIpHandler) GetListIp(r *http.Request, ip string) (string, string) {
-
-	var list string
-	var message string
-
-	allowed, err := h.blackList.IsAllowed(r.Context(), ip)
-	if err == nil && allowed {
-		list = "black"
-		message = "Доступ запрещён Ip в черном списке"
-	} else {
-		allowed, err = h.grayList.IsAllowed(r.Context(), ip)
-
-		if err == nil && allowed {
-			list = "gray"
-			message = "Необходимо пройти капчу"
-		} else {
-			allowed, err = h.whiteList.IsAllowed(r.Context(), ip)
-			if err == nil && allowed {
-				list = "white"
-				message = "Доступ разрешён"
-			} else {
-				list = "none"
-				message = "Данный IP не найден"
-			}
-		}
-	}
-
-	return list, message
-}
-
-func (h *CheckIpHandler) HandlerCheck(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "GET":
-		h.CheckIp(w, r)
-	default:
-		respondWithError(w, http.StatusMethodNotAllowed, "")
-
-	}
+	return "none", "IP не найден ни в одном списке"
 }

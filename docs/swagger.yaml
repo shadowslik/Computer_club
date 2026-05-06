@@ -1,0 +1,822 @@
+basePath: /
+definitions:
+  domain.ClientStat:
+    properties:
+      avg_latency_ms:
+        example: 18.3
+        type: number
+      country:
+        example: RU
+        type: string
+      error_rate:
+        example: 1.2
+        type: number
+      ip:
+        example: 1.2.3.4
+        type: string
+      last_seen:
+        example: "13:05:00"
+        type: string
+      requests:
+        example: 4200
+        type: integer
+      traffic_mb:
+        example: 12.5
+        type: number
+    type: object
+  domain.DenialStat:
+    properties:
+      denials:
+        example: 42
+        type: integer
+      ip:
+        example: 1.2.3.4
+        type: string
+      last_denied:
+        example: "2026-05-06T13:00:00+04:00"
+        type: string
+      reason:
+        enum:
+        - blacklist
+        - graylist
+        - not_in_whitelist
+        example: blacklist
+        type: string
+    type: object
+  domain.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  domain.RateRule:
+    properties:
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      max_concurrent:
+        description: Connection limits (-1 = disabled)
+        example: 100
+        type: integer
+      max_download_bps:
+        example: 1048576
+        type: integer
+      max_new_per_second:
+        example: 20
+        type: integer
+      max_rpd:
+        example: 100000
+        type: integer
+      max_rph:
+        example: 10000
+        type: integer
+      max_rpm:
+        example: 1000
+        type: integer
+      max_rps:
+        description: Request rate limits (-1 = disabled)
+        example: 100
+        type: integer
+      max_traffic_day:
+        description: Daily total traffic limit in bytes (-1 = disabled)
+        example: 104857600
+        type: integer
+      max_upload_bps:
+        description: Bandwidth limits in bytes/s (-1 = disabled)
+        example: 1048576
+        type: integer
+      target:
+        allOf:
+        - $ref: '#/definitions/domain.RuleTarget'
+        enum:
+        - ip
+        - subnet
+        example: ip
+      value:
+        example: 192.168.1.1
+        type: string
+    type: object
+  domain.RuleTarget:
+    enum:
+    - ip
+    - subnet
+    type: string
+    x-enum-varnames:
+    - TargetIP
+    - TargetSubnet
+  domain.UpstreamStatus:
+    properties:
+      errorRate:
+        example: 0.5
+        type: number
+      id:
+        example: java-backend
+        type: string
+      lastCheck:
+        example: "13:05:00"
+        type: string
+      latency:
+        example: 12
+        type: integer
+      latencyHistory:
+        items:
+          type: integer
+        type: array
+      name:
+        example: Java Backend
+        type: string
+      requestsTotal:
+        example: 1234
+        type: integer
+      status:
+        enum:
+        - healthy
+        - degraded
+        - down
+        example: healthy
+        type: string
+      url:
+        example: http://localhost:8080/health
+        type: string
+    type: object
+  domain.Violator:
+    properties:
+      banned_until:
+        example: "2026-05-06T13:05:00+04:00"
+        type: string
+      blocked_at:
+        example: "2026-05-06T13:00:00+04:00"
+        type: string
+      endpoint:
+        example: /api/resource
+        type: string
+      ip:
+        example: 1.2.3.4
+        type: string
+      limit:
+        example: 100
+        type: integer
+      requests:
+        example: 150
+        type: integer
+    type: object
+  handlers.CheckIpResponse:
+    properties:
+      ip:
+        example: 192.168.1.1
+        type: string
+      list:
+        enum:
+        - white
+        - black
+        - gray
+        - none
+        example: white
+        type: string
+      message:
+        example: доступ разрешён
+        type: string
+    type: object
+  metrics.Snapshot:
+    properties:
+      active_conns:
+        example: 17
+        type: integer
+      avg_latency_ms:
+        example: 12.4
+        type: number
+      rps:
+        example: 27.8
+        type: number
+      total_bytes_in:
+        example: 10485760
+        type: integer
+      total_bytes_out:
+        example: 52428800
+        type: integer
+      total_errors:
+        example: 42
+        type: integer
+      total_requests:
+        example: 100000
+        type: integer
+      uptime_sec:
+        example: 3600
+        type: integer
+    type: object
+host: localhost:8081
+info:
+  contact:
+    email: artiomk00o@gmail.com
+    name: API Support
+  description: HTTP proxy с управлением доступом по IP (whitelist/blacklist/graylist),
+    rate limiting (RPS/RPM/RPH/RPD/bandwidth/соединения) и мониторингом в реальном
+    времени.
+  license:
+    name: MIT
+  title: Proxy API
+  version: "1.0"
+paths:
+  /api/v1/upstream:
+    get:
+      description: |-
+        Возвращает актуальный статус всех настроенных upstream-сервисов (Java Backend, Redis, PostgreSQL и др.).
+        Статус обновляется каждые 3 секунды через health-check (HTTP GET или TCP dial).
+
+        Поля ответа:
+        - `status`: "healthy" | "degraded" | "down"
+        - `latency`: последняя задержка (мс)
+        - `latencyHistory`: последние 20 замеров (мс)
+        - `errorRate`: процент ошибочных ответов за всё время
+        - `requestsTotal`: общее число health-check запросов
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список статусов upstream-сервисов
+          schema:
+            items:
+              $ref: '#/definitions/domain.UpstreamStatus'
+            type: array
+      summary: Статус upstream-сервисов
+      tags:
+      - Мониторинг
+  /health:
+    get:
+      description: Возвращает статус сервера, uptime, текущий RPS и количество активных
+        соединений. Используется для liveness/readiness проб.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: status, uptime_s, rps, conns
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health check
+      tags:
+      - Мониторинг
+  /ip/blacklist:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет IP-адрес, CIDR-подсеть или диапазон из списка. Возвращает
+        false, если записи не было.
+      parameters:
+      - description: IP-адрес, CIDR или диапазон
+        example: '"192.168.1.0/24"'
+        in: body
+        name: ip
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: true — запись удалена, false — не найдена
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Невалидный IP или отсутствует тело запроса
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка сохранения
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Удалить запись из IP-списка
+      tags:
+      - IP-управление
+    get:
+      description: Возвращает все записи из выбранного списка (IP-адреса, CIDR-подсети,
+        диапазоны).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Карта записей: ключ — IP/CIDR/диапазон, значение — true'
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Получить IP-список
+      tags:
+      - IP-управление
+    post:
+      consumes:
+      - application/json
+      description: Добавляет IP-адрес, CIDR-подсеть (например 10.0.0.0/8) или диапазон
+        (192.168.1.1-192.168.1.254) в список. Дубликаты игнорируются.
+      parameters:
+      - description: IP-адрес, CIDR или диапазон
+        example: '"192.168.1.0/24"'
+        in: body
+        name: ip
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: true — запись добавлена, false — уже существует
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Невалидный IP/CIDR/диапазон или отсутствует тело запроса
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка сохранения
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Добавить запись в IP-список
+      tags:
+      - IP-управление
+  /ip/check:
+    get:
+      description: |-
+        Определяет, в каком списке находится IP-адрес (black/gray/white/none).
+        Порядок проверки: blacklist → graylist → whitelist → none.
+        IP можно передать через query-параметр, тело запроса (JSON-строка) или он будет взят из RemoteAddr.
+      parameters:
+      - description: Проверяемый IP-адрес
+        example: 192.168.1.1
+        in: query
+        name: ip
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Результат проверки
+          schema:
+            $ref: '#/definitions/handlers.CheckIpResponse'
+        "400":
+          description: Невалидный IP-адрес
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Проверить принадлежность IP к спискам
+      tags:
+      - IP-управление
+  /ip/denials:
+    get:
+      description: |-
+        Возвращает агрегированную статистику отказов: сколько раз каждый IP был заблокирован и по какой причине.
+        Источники записей: blacklist (403), graylist (429/CAPTCHA), not_in_whitelist (403 при default_deny=true).
+        Записи накапливаются с момента запуска сервера (in-memory хранилище).
+
+        Поля ответа:
+        - `ip`: IP-адрес
+        - `denials`: суммарное количество отказов
+        - `last_denied`: время последнего отказа (RFC3339)
+        - `reason`: последняя причина ("blacklist" | "graylist" | "not_in_whitelist")
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список записей об отказах
+          schema:
+            items:
+              $ref: '#/definitions/domain.DenialStat'
+            type: array
+      summary: Статистика отказов доступа
+      tags:
+      - IP-управление
+  /ip/graylist:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет IP-адрес, CIDR-подсеть или диапазон из списка. Возвращает
+        false, если записи не было.
+      parameters:
+      - description: IP-адрес, CIDR или диапазон
+        example: '"192.168.1.0/24"'
+        in: body
+        name: ip
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: true — запись удалена, false — не найдена
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Невалидный IP или отсутствует тело запроса
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка сохранения
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Удалить запись из IP-списка
+      tags:
+      - IP-управление
+    get:
+      description: Возвращает все записи из выбранного списка (IP-адреса, CIDR-подсети,
+        диапазоны).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Карта записей: ключ — IP/CIDR/диапазон, значение — true'
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Получить IP-список
+      tags:
+      - IP-управление
+    post:
+      consumes:
+      - application/json
+      description: Добавляет IP-адрес, CIDR-подсеть (например 10.0.0.0/8) или диапазон
+        (192.168.1.1-192.168.1.254) в список. Дубликаты игнорируются.
+      parameters:
+      - description: IP-адрес, CIDR или диапазон
+        example: '"192.168.1.0/24"'
+        in: body
+        name: ip
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: true — запись добавлена, false — уже существует
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Невалидный IP/CIDR/диапазон или отсутствует тело запроса
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка сохранения
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Добавить запись в IP-список
+      tags:
+      - IP-управление
+  /ip/whitelist:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет IP-адрес, CIDR-подсеть или диапазон из списка. Возвращает
+        false, если записи не было.
+      parameters:
+      - description: IP-адрес, CIDR или диапазон
+        example: '"192.168.1.0/24"'
+        in: body
+        name: ip
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: true — запись удалена, false — не найдена
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Невалидный IP или отсутствует тело запроса
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка сохранения
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Удалить запись из IP-списка
+      tags:
+      - IP-управление
+    get:
+      description: Возвращает все записи из выбранного списка (IP-адреса, CIDR-подсети,
+        диапазоны).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Карта записей: ключ — IP/CIDR/диапазон, значение — true'
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Получить IP-список
+      tags:
+      - IP-управление
+    post:
+      consumes:
+      - application/json
+      description: Добавляет IP-адрес, CIDR-подсеть (например 10.0.0.0/8) или диапазон
+        (192.168.1.1-192.168.1.254) в список. Дубликаты игнорируются.
+      parameters:
+      - description: IP-адрес, CIDR или диапазон
+        example: '"192.168.1.0/24"'
+        in: body
+        name: ip
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: true — запись добавлена, false — уже существует
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Невалидный IP/CIDR/диапазон или отсутствует тело запроса
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка сохранения
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Добавить запись в IP-список
+      tags:
+      - IP-управление
+  /metrics:
+    get:
+      description: 'Возвращает агрегированные метрики с момента запуска: количество
+        запросов, ошибок, трафик, RPS, латентность, активные соединения.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Снимок метрик
+          schema:
+            $ref: '#/definitions/metrics.Snapshot'
+      summary: Метрики сервера
+      tags:
+      - Мониторинг
+  /ratelimit:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        GET — возвращает все правила. POST — создаёт новое правило для IP или подсети.
+
+        Поля правила (все лимиты -1 = отключён):
+        - `target`: "ip" или "subnet"
+        - `value`: конкретный IP или CIDR (например 10.0.0.0/8)
+        - `max_rps` / `max_rpm` / `max_rph` / `max_rpd`: лимиты запросов
+        - `max_upload_bps` / `max_download_bps`: лимиты пропускной способности (байт/с)
+        - `max_traffic_day`: дневной лимит трафика (байт)
+        - `max_concurrent`: макс. одновременных соединений
+        - `max_new_per_second`: макс. новых соединений в секунду
+      parameters:
+      - description: Правило rate limiting (только для POST)
+        in: body
+        name: rule
+        schema:
+          $ref: '#/definitions/domain.RateRule'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список всех правил
+          schema:
+            items:
+              $ref: '#/definitions/domain.RateRule'
+            type: array
+        "201":
+          description: 'Правило создано: {\"status\":\"ok\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Невалидный JSON или отсутствует поле value/target
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "405":
+          description: Метод не поддерживается
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка сохранения
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Управление правилами rate limiting
+      tags:
+      - Rate Limiting
+    post:
+      consumes:
+      - application/json
+      description: |-
+        GET — возвращает все правила. POST — создаёт новое правило для IP или подсети.
+
+        Поля правила (все лимиты -1 = отключён):
+        - `target`: "ip" или "subnet"
+        - `value`: конкретный IP или CIDR (например 10.0.0.0/8)
+        - `max_rps` / `max_rpm` / `max_rph` / `max_rpd`: лимиты запросов
+        - `max_upload_bps` / `max_download_bps`: лимиты пропускной способности (байт/с)
+        - `max_traffic_day`: дневной лимит трафика (байт)
+        - `max_concurrent`: макс. одновременных соединений
+        - `max_new_per_second`: макс. новых соединений в секунду
+      parameters:
+      - description: Правило rate limiting (только для POST)
+        in: body
+        name: rule
+        schema:
+          $ref: '#/definitions/domain.RateRule'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список всех правил
+          schema:
+            items:
+              $ref: '#/definitions/domain.RateRule'
+            type: array
+        "201":
+          description: 'Правило создано: {\"status\":\"ok\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Невалидный JSON или отсутствует поле value/target
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "405":
+          description: Метод не поддерживается
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка сохранения
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Управление правилами rate limiting
+      tags:
+      - Rate Limiting
+  /ratelimit/{id}:
+    delete:
+      description: 'Удаляет правило по его UUID. ID правила берётся из пути: /ratelimit/{id}.'
+      parameters:
+      - description: UUID правила
+        example: 550e8400-e29b-41d4-a716-446655440000
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Правило удалено: {\"status\":\"deleted\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: ID правила не указан
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "405":
+          description: Метод не поддерживается
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Ошибка удаления
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Удалить правило rate limiting
+      tags:
+      - Rate Limiting
+  /ratelimit/violators:
+    get:
+      description: |-
+        Возвращает список IP-адресов, заблокированных за превышение лимитов. Записи автоматически удаляются по истечении BannedUntil.
+
+        Поля ответа:
+        - `ip`: IP-адрес нарушителя
+        - `endpoint`: URL, на котором было превышение
+        - `blocked_at`: время блокировки (RFC3339)
+        - `banned_until`: время снятия блокировки (RFC3339)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список нарушителей
+          schema:
+            items:
+              $ref: '#/definitions/domain.Violator'
+            type: array
+      summary: Список нарушителей rate limiting
+      tags:
+      - Rate Limiting
+  /ratelimit/violators/{ip}/unban:
+    post:
+      description: Досрочно снимает блокировку с IP-адреса, нарушившего rate limit.
+        IP передаётся в пути URL.
+      parameters:
+      - description: IP-адрес для разблокировки
+        example: 1.2.3.4
+        in: path
+        name: ip
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"status\":\"unbanned\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: IP не указан в пути
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "405":
+          description: Метод не поддерживается
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Разблокировать IP
+      tags:
+      - Rate Limiting
+  /top-clients:
+    get:
+      description: |-
+        Возвращает список клиентских IP, отсортированных по выбранному критерию. Данные накапливаются через middleware с момента старта.
+
+        Параметр `sort`:
+        - `requests` (по умолчанию) — по количеству запросов
+        - `traffic` — по объёму трафика (МБ)
+        - `errors` — по проценту ошибок
+
+        Поля ответа:
+        - `ip`: IP-адрес клиента
+        - `requests`: суммарное количество запросов
+        - `traffic_mb`: суммарный трафик (МБ)
+        - `avg_latency_ms`: средняя задержка (мс)
+        - `error_rate`: процент ответов 4xx/5xx
+        - `last_seen`: время последнего запроса (HH:MM:SS)
+      parameters:
+      - default: requests
+        description: 'Поле сортировки: requests, traffic, errors'
+        enum:
+        - requests
+        - traffic
+        - errors
+        in: query
+        name: sort
+        type: string
+      - default: 20
+        description: Максимальное количество записей
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Топ клиентов
+          schema:
+            items:
+              $ref: '#/definitions/domain.ClientStat'
+            type: array
+        "400":
+          description: Невалидный параметр
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Топ клиентов
+      tags:
+      - Мониторинг
+schemes:
+- http
+swagger: "2.0"

@@ -1,96 +1,116 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
-	"proxy/internal/usecase"
+
+	"go.uber.org/zap"
 )
 
+type ipListUseCase interface {
+	GetAll() (map[string]bool, error)
+	IsAllowed(ctx context.Context, ip string) (bool, error)
+	Add(ctx context.Context, ip string) (bool, error)
+	Remove(ctx context.Context, ip string) (bool, error)
+}
+
 type Handler struct {
-	listUseCase *usecase.HTTPUseCase
-	logger      *slog.Logger
+	ListUseCase ipListUseCase
+	log         *zap.Logger
 }
 
-func NewHandler(listUseCase *usecase.HTTPUseCase, logger *slog.Logger) *Handler {
-	return &Handler{listUseCase: listUseCase,
-		logger: logger}
+func NewHandler(listUseCase ipListUseCase, log *zap.Logger) *Handler {
+	return &Handler{ListUseCase: listUseCase, log: log}
 }
 
-func respondWithJSON(w http.ResponseWriter, statusCode int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(payload)
-}
-
-func respondWithError(w http.ResponseWriter, statusCode int, message string) {
-	respondWithJSON(w, statusCode, map[string]string{"error": message})
-}
-
-func (handler *Handler) getIp(w http.ResponseWriter, r *http.Request) {
-	res, err := handler.listUseCase.GetAll()
+// getIp godoc
+// @Summary      Получить IP-список
+// @Description  Возвращает все записи из выбранного списка (IP-адреса, CIDR-подсети, диапазоны).
+// @Tags         IP-управление
+// @Produce      json
+// @Success      200  {object}  map[string]bool  "Карта записей: ключ — IP/CIDR/диапазон, значение — true"
+// @Failure      500  {object}  domain.ErrorResponse  "Внутренняя ошибка сервера"
+// @Router       /ip/whitelist [get]
+// @Router       /ip/blacklist [get]
+// @Router       /ip/graylist  [get]
+func (h *Handler) getIp(w http.ResponseWriter, r *http.Request) {
+	res, err := h.ListUseCase.GetAll()
 	if err != nil {
-
-		respondWithError(w, http.StatusInternalServerError, "Error getting whitelist")
+		respondWithError(w, http.StatusInternalServerError, "ошибка получения списка")
 		return
 	}
-
 	respondWithJSON(w, http.StatusOK, res)
-
 }
 
-func (handler *Handler) addIp(w http.ResponseWriter, r *http.Request) {
+// addIp godoc
+// @Summary      Добавить запись в IP-список
+// @Description  Добавляет IP-адрес, CIDR-подсеть (например 10.0.0.0/8) или диапазон (192.168.1.1-192.168.1.254) в список. Дубликаты игнорируются.
+// @Tags         IP-управление
+// @Accept       json
+// @Produce      json
+// @Param        ip  body      string  true  "IP-адрес, CIDR или диапазон"  example("192.168.1.0/24")
+// @Success      200  {object}  map[string]bool       "true — запись добавлена, false — уже существует"
+// @Failure      400  {object}  domain.ErrorResponse  "Невалидный IP/CIDR/диапазон или отсутствует тело запроса"
+// @Failure      500  {object}  domain.ErrorResponse  "Ошибка сохранения"
+// @Router       /ip/whitelist [post]
+// @Router       /ip/blacklist [post]
+// @Router       /ip/graylist  [post]
+func (h *Handler) addIp(w http.ResponseWriter, r *http.Request) {
 	var ip string
-	if err := json.NewDecoder(r.Body).Decode(&ip); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+	if err := json.NewDecoder(r.Body).Decode(&ip); err != nil || ip == "" {
+		respondWithError(w, http.StatusBadRequest, "невалидный запрос")
 		return
 	}
 
-	if ip == "" {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
-		return
-	}
-
-	res, err := handler.listUseCase.Add(r.Context(), ip)
+	res, err := h.ListUseCase.Add(r.Context(), ip)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error adding whitelist")
+		respondWithError(w, http.StatusInternalServerError, "ошибка добавления IP")
 		return
 	}
 
-	handler.logger.Info("Успешно добавил новый ip в список")
+	h.log.Info("IP added to list", zap.String("ip", ip))
 	respondWithJSON(w, http.StatusOK, res)
 }
 
-func (handler *Handler) deleteIp(w http.ResponseWriter, r *http.Request) {
+// deleteIp godoc
+// @Summary      Удалить запись из IP-списка
+// @Description  Удаляет IP-адрес, CIDR-подсеть или диапазон из списка. Возвращает false, если записи не было.
+// @Tags         IP-управление
+// @Accept       json
+// @Produce      json
+// @Param        ip  body      string  true  "IP-адрес, CIDR или диапазон"  example("192.168.1.0/24")
+// @Success      200  {object}  map[string]bool       "true — запись удалена, false — не найдена"
+// @Failure      400  {object}  domain.ErrorResponse  "Невалидный IP или отсутствует тело запроса"
+// @Failure      500  {object}  domain.ErrorResponse  "Ошибка сохранения"
+// @Router       /ip/whitelist [delete]
+// @Router       /ip/blacklist [delete]
+// @Router       /ip/graylist  [delete]
+func (h *Handler) deleteIp(w http.ResponseWriter, r *http.Request) {
 	var ip string
-	if err := json.NewDecoder(r.Body).Decode(&ip); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+	if err := json.NewDecoder(r.Body).Decode(&ip); err != nil || ip == "" {
+		respondWithError(w, http.StatusBadRequest, "невалидный запрос")
 		return
 	}
 
-	if ip == "" {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
-		return
-	}
-
-	res, err := handler.listUseCase.Remove(r.Context(), ip)
+	res, err := h.ListUseCase.Remove(r.Context(), ip)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error removing whitelist")
+		respondWithError(w, http.StatusInternalServerError, "ошибка удаления IP")
 		return
 	}
 	respondWithJSON(w, http.StatusOK, res)
 }
 
-func (handler *Handler) ListHandler(w http.ResponseWriter, r *http.Request) {
+// ListHandler routes GET/POST/DELETE for an IP list.
+func (h *Handler) ListHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
-	case "GET":
-		handler.getIp(w, r)
-	case "POST":
-		handler.addIp(w, r)
-	case "DELETE":
-		handler.deleteIp(w, r)
+	case http.MethodGet:
+		h.getIp(w, r)
+	case http.MethodPost:
+		h.addIp(w, r)
+	case http.MethodDelete:
+		h.deleteIp(w, r)
 	default:
-		respondWithError(w, http.StatusMethodNotAllowed, "")
-
+		respondWithError(w, http.StatusMethodNotAllowed, "метод не поддерживается")
 	}
 }

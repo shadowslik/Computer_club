@@ -1,33 +1,36 @@
 package logger
 
 import (
-	"log/slog"
-	"os"
-	"strings"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-func NewLogger() *slog.Logger {
-	var handler slog.Handler
-
-	levelStr := strings.ToLower(os.Getenv("LOG_LEVEL"))
-
-	var level slog.Level
-
-	switch strings.ToLower(levelStr) {
-	case "debug":
-		level = slog.LevelDebug
-	case "info":
-		level = slog.LevelInfo
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-
+func New(level string) (*zap.Logger, error) {
+	lvl, err := zapcore.ParseLevel(level)
+	if err != nil {
+		lvl = zapcore.InfoLevel
 	}
 
-	handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
-	})
+	cfg := zap.Config{
+		Level:            zap.NewAtomicLevelAt(lvl),
+		Development:      false,
+		Encoding:         "json",
+		OutputPaths:      []string{"stdout"},
+		ErrorOutputPaths: []string{"stderr"},
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        "ts",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			MessageKey:     "msg",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.LowercaseLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		},
+	}
 
-	return slog.New(handler)
+	return cfg.Build()
 }

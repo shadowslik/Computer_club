@@ -1,60 +1,74 @@
 package server
 
 import (
-	"log"
 	"net/http"
+	"proxy/internal/delivery/handlers"
 	"proxy/internal/server/middleware"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func (s *Server) routes() http.Handler {
-
+func buildRoutes(deps Deps) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /health", s.handleHealth)
+	// Swagger UI
+	mux.Handle("GET /swagger/", httpSwagger.WrapHandler)
 
-	mux.HandleFunc("GET /hello", s.handleHello)
+	// Health & metrics (created inline — just wraps the already-created Collector)
+	metricsH := handlers.NewMetricsHandler(deps.Collector)
+	mux.HandleFunc("GET /health", metricsH.HandleHealth)
+	mux.HandleFunc("GET /metrics", metricsH.HandleMetrics)
 
-	mux.HandleFunc("/ip/whiteList", s.whiteHandler.ListHandler)
+	// IP lists
+	mux.HandleFunc("/ip/whitelist", deps.WhiteHandler.ListHandler)
+	mux.HandleFunc("/ip/blacklist", deps.BlackHandler.ListHandler)
+	mux.HandleFunc("/ip/graylist", deps.GrayHandler.ListHandler)
+	mux.HandleFunc("GET /ip/check", deps.CheckHandler.CheckIp)
+	mux.HandleFunc("GET /ip/denials", deps.DenialsHandler.GetDenials)
 
-	mux.HandleFunc("/ip/blackList", s.blackHandler.ListHandler)
+	// Rate limiting
+	mux.HandleFunc("/ratelimit", deps.RLHandler.ListHandler)
+	mux.HandleFunc("/ratelimit/", deps.RLHandler.RuleHandler)
+	mux.HandleFunc("GET /ratelimit/violators", deps.ViolatorsHandler.GetViolators)
+	mux.HandleFunc("POST /ratelimit/violators/{ip}/unban", deps.ViolatorsHandler.UnbanViolator)
 
-	mux.HandleFunc("/ip/grayList", s.grayHandler.ListHandler)
+	// Upstream & stats
+	mux.HandleFunc("GET /api/v1/upstream", deps.UpstreamHandler.GetStatuses)
+	mux.HandleFunc("GET /top-clients", deps.StatsHandler.GetTopClients)
 
-	mux.HandleFunc("/ip/check", s.checkHandler.HandlerCheck)
+	// Middleware chain (outermost first)
+	handler := corsMiddleware(deps.Cfg.Server.CORSAllowedOrigin)(mux)
+	handler = middleware.IPFilterMiddleware(
+		deps.WhiteHandler.ListUseCase,
+		deps.BlackHandler.ListUseCase,
+		deps.GrayHandler.ListUseCase,
+		deps.Cfg.Lists.DefaultDeny,
+		deps.DenialsRepo,
+		deps.Log,
+	)(handler)
+	handler = middleware.RateLimitMiddleware(
+		deps.RLUseCase,
+		deps.Log,
+		deps.Collector,
+		deps.StatsRepo,
+		deps.ViolatorsRepo,
+		deps.Cfg.RateLimit.BanDuration,
+	)(handler)
 
-	mux.HandleFunc("/ratelimit", s.rlHandler.ListHandler)
-
-	mux.HandleFunc("/ratelimit/", s.rlHandler.RuleHandler)
-
-	return middleware.RateLimitMiddleware(s.rlUC)(loggingMiddleware(mux))
+	return handler
 }
 
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("health check")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
-}
-
-func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) {
-	s.log.Info("hello request", "addr", r.RemoteAddr)
-	w.Write([]byte("Hello, World!"))
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		log.Printf("%s %s %s\n", r.Method, r.URL.Path, r.RemoteAddr)
-		next.ServeHTTP(w, r)
-	})
+func corsMiddleware(allowedOrigin string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

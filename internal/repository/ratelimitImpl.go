@@ -3,12 +3,13 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"github.com/google/uuid"
 	"net"
 	"os"
 	"proxy/internal/domain"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type RateLimitStore struct {
@@ -81,7 +82,6 @@ func (s *RateLimitStore) GetRules(_ context.Context) ([]domain.RateRule, error) 
 	return result, nil
 }
 
-// FindRules — возвращает правила, применимые к данному IP (точный IP + подсети)
 func (s *RateLimitStore) FindRules(_ context.Context, ipStr string) ([]domain.RateRule, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

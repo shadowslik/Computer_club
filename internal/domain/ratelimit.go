@@ -12,43 +12,41 @@ const (
 	TargetSubnet RuleTarget = "subnet"
 )
 
+// RateRule defines a rate limiting policy for an IP or subnet.
 type RateRule struct {
-	ID     string     `json:"id"`
-	Target RuleTarget `json:"target"`
-	Value  string     `json:"value"`
+	ID     string     `json:"id"     example:"550e8400-e29b-41d4-a716-446655440000"`
+	Target RuleTarget `json:"target" example:"ip"         enums:"ip,subnet"`
+	Value  string     `json:"value"  example:"192.168.1.1"`
 
-	// 2.2.1 — запросы
-	MaxRPS int `json:"max_rps"` // -1 = отключён, 0 = запрещено всё
-	MaxRPM int `json:"max_rpm"`
-	MaxRPH int `json:"max_rph"`
-	MaxRPD int `json:"max_rpd"`
+	// Request rate limits (-1 = disabled)
+	MaxRPS int `json:"max_rps" example:"100"`
+	MaxRPM int `json:"max_rpm" example:"1000"`
+	MaxRPH int `json:"max_rph" example:"10000"`
+	MaxRPD int `json:"max_rpd" example:"100000"`
 
-	// 2.2.2 — пропускная способность (байт)
-	MaxUploadBps   int64 `json:"max_upload_bps"`   // байт за один запрос
-	MaxDownloadBps int64 `json:"max_download_bps"` // байт за один запрос
-	MaxTrafficDay  int64 `json:"max_traffic_day"`  // суммарно за день
+	// Bandwidth limits in bytes/s (-1 = disabled)
+	MaxUploadBps   int64 `json:"max_upload_bps"   example:"1048576"`
+	MaxDownloadBps int64 `json:"max_download_bps" example:"1048576"`
+	// Daily total traffic limit in bytes (-1 = disabled)
+	MaxTrafficDay int64 `json:"max_traffic_day" example:"104857600"`
 
-	// 2.2.3 — соединения
-	MaxConcurrent   int `json:"max_concurrent"`     // одновременных
-	MaxNewPerSecond int `json:"max_new_per_second"` // новых в секунду
+	// Connection limits (-1 = disabled)
+	MaxConcurrent   int `json:"max_concurrent"    example:"100"`
+	MaxNewPerSecond int `json:"max_new_per_second" example:"20"`
 }
 
 type Counter struct {
-	// запросы
 	RequestsSecond int
 	RequestsMinute int
 	RequestsHour   int
 	RequestsDay    int
 
-	// трафик за день
 	UploadDay   int64
 	DownloadDay int64
 
-	// соединения
 	ActiveConns     int
 	NewConnsLastSec int
 
-	// временные метки сброса
 	LastSecond time.Time
 	LastMinute time.Time
 	LastHour   time.Time
@@ -65,7 +63,6 @@ type RateLimitRepo interface {
 	RemoveRule(ctx context.Context, id string) error
 	GetRules(ctx context.Context) ([]RateRule, error)
 	FindRules(ctx context.Context, ip string) ([]RateRule, error)
-
 	GetCounter(ctx context.Context, key string) (*Counter, error)
 	SaveCounter(ctx context.Context, key string, c *Counter) error
 	IncrementConn(ctx context.Context, key string) error
@@ -73,12 +70,12 @@ type RateLimitRepo interface {
 }
 
 type RateLimitUseCase interface {
-	Check(ctx context.Context, ip string, uploadBytes int64) (LimitResult, error)
+	Check(ctx context.Context, ip string, uploadBytes int64, rules []RateRule) (LimitResult, error)
 	TrackDownload(ctx context.Context, ip string, bytes int64) error
 	OnConnect(ctx context.Context, ip string) (LimitResult, error)
 	OnDisconnect(ctx context.Context, ip string) error
 	AddRule(ctx context.Context, rule RateRule) error
 	RemoveRule(ctx context.Context, id string) error
 	GetRules(ctx context.Context) ([]RateRule, error)
-	GetRulesForIP(ctx context.Context, ip string) ([]RateRule, error) // ← новый
+	GetRulesForIP(ctx context.Context, ip string) ([]RateRule, error)
 }

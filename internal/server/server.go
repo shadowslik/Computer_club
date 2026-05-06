@@ -3,76 +3,63 @@ package server
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"proxy/internal/config"
 	"proxy/internal/delivery/handlers"
-	"proxy/internal/usecase"
+	"proxy/internal/domain"
+	"proxy/pkg/metrics"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type Server struct {
 	httpServer *http.Server
-	log        *slog.Logger
-	cfg        *config.Config
-
-	whiteHandler *handlers.Handler
-	blackHandler *handlers.Handler
-	grayHandler  *handlers.Handler
-	checkHandler *handlers.CheckIpHandler
-	rlHandler    *handlers.RateLimitHandler
-
-	rlUC *usecase.RateLimitService
+	log        *zap.Logger
 }
 
-func NewServer(
-	cfg *config.Config,
-	log *slog.Logger,
-	white, gray, black *handlers.Handler,
-	check *handlers.CheckIpHandler,
-	rlHandler *handlers.RateLimitHandler,
-	rlUC *usecase.RateLimitService,
-) *Server {
+type Deps struct {
+	Cfg              *config.Config
+	Log              *zap.Logger
+	Collector        *metrics.Collector
+	WhiteHandler     *handlers.Handler
+	BlackHandler     *handlers.Handler
+	GrayHandler      *handlers.Handler
+	CheckHandler     *handlers.CheckIpHandler
+	RLHandler        *handlers.RateLimitHandler
+	RLUseCase        domain.RateLimitUseCase
+	UpstreamHandler  *handlers.UpstreamHandler
+	StatsHandler     *handlers.ClientStatsHandler
+	ViolatorsHandler *handlers.ViolatorsHandler
+	DenialsHandler   *handlers.DenialsHandler
+	DenialsRepo      domain.DenialsRepo
+	ViolatorsRepo    domain.ViolatorsRepo
+	StatsRepo        domain.ClientStatsRepo
+}
 
-	server := &Server{
-		log: log,
-		cfg: cfg,
-
-		whiteHandler: white,
-		blackHandler: black,
-		grayHandler:  gray,
-		checkHandler: check,
-
-		rlHandler: rlHandler,
-		rlUC:      rlUC,
+func NewServer(deps Deps) *Server {
+	s := &Server{log: deps.Log}
+	s.httpServer = &http.Server{
+		Addr:         ":" + deps.Cfg.Server.Port,
+		Handler:      buildRoutes(deps),
+		ReadTimeout:  deps.Cfg.Server.ReadTimeout,
+		WriteTimeout: deps.Cfg.Server.WriteTimeout,
+		IdleTimeout:  deps.Cfg.Server.IdleTimeout,
 	}
-
-	server.httpServer = &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      server.routes(),
-		ReadTimeout:  0,
-		WriteTimeout: 0,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	return server
+	return s
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	s.log.Info("starting server", "port", s.cfg.Port)
-
+	s.log.Info("starting server", zap.String("addr", s.httpServer.Addr))
 	go func() {
 		<-ctx.Done()
-		s.log.Info("shutting down server...")
-
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		s.log.Info("shutting down server")
+		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		s.httpServer.Shutdown(shutdownCtx)
+		_ = s.httpServer.Shutdown(shutCtx)
 	}()
-
 	if err := s.httpServer.ListenAndServe(); err != http.ErrServerClosed {
 		return fmt.Errorf("server error: %w", err)
 	}
-
 	return nil
 }

@@ -1,0 +1,44 @@
+server:
+  port: "8081"
+  read_timeout: 30s
+  write_timeout: 30s
+  idle_timeout: 60s
+  cors_allowed_origin: "http://localhost:3000"
+
+lists:
+  whitelist_file: "configs/white.json"
+  blacklist_file: "configs/black.json"
+  graylist_file: "configs/gray.json"
+  ratelimit_file: "configs/ratelimit.json"
+  default_deny: false
+  cache_size: 1000
+  cache_ttl: 30s
+
+rate_limit:
+  default_rps: 100
+  default_rpm: 1000
+  default_rph: 10000
+  default_rpd: 100000
+  default_max_upload_bps: 1048576
+  default_max_download_bps: 1048576
+  default_max_traffic_day: 104857600
+  default_max_concurrent: 100
+  default_max_new_per_second: 20
+  ban_duration: 5m
+
+upstreams:
+  - id: "java-backend"
+    name: "Java Backend"
+    url: "http://localhost:8080/health"
+    type: "http"
+  - id: "redis"
+    name: "Redis Cache"
+    url: "localhost:6379"
+    type: "tcp"
+  - id: "postgres"
+    name: "PostgreSQL"
+    url: "localhost:5432"
+    type: "tcp"
+
+log:
+  level: "info"

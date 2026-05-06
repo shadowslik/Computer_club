@@ -1,0 +1,1100 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "HTTP proxy с управлением доступом по IP (whitelist/blacklist/graylist), rate limiting (RPS/RPM/RPH/RPD/bandwidth/соединения) и мониторингом в реальном времени.",
+        "title": "Proxy API",
+        "contact": {
+            "name": "API Support",
+            "email": "artiomk00o@gmail.com"
+        },
+        "license": {
+            "name": "MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8081",
+    "basePath": "/",
+    "paths": {
+        "/api/v1/upstream": {
+            "get": {
+                "description": "Возвращает актуальный статус всех настроенных upstream-сервисов (Java Backend, Redis, PostgreSQL и др.).\nСтатус обновляется каждые 3 секунды через health-check (HTTP GET или TCP dial).\n\nПоля ответа:\n- `status`: \"healthy\" | \"degraded\" | \"down\"\n- `latency`: последняя задержка (мс)\n- `latencyHistory`: последние 20 замеров (мс)\n- `errorRate`: процент ошибочных ответов за всё время\n- `requestsTotal`: общее число health-check запросов",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Мониторинг"
+                ],
+                "summary": "Статус upstream-сервисов",
+                "responses": {
+                    "200": {
+                        "description": "Список статусов upstream-сервисов",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.UpstreamStatus"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Возвращает статус сервера, uptime, текущий RPS и количество активных соединений. Используется для liveness/readiness проб.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Мониторинг"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "status, uptime_s, rps, conns",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/ip/blacklist": {
+            "get": {
+                "description": "Возвращает все записи из выбранного списка (IP-адреса, CIDR-подсети, диапазоны).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Получить IP-список",
+                "responses": {
+                    "200": {
+                        "description": "Карта записей: ключ — IP/CIDR/диапазон, значение — true",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Добавляет IP-адрес, CIDR-подсеть (например 10.0.0.0/8) или диапазон (192.168.1.1-192.168.1.254) в список. Дубликаты игнорируются.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Добавить запись в IP-список",
+                "parameters": [
+                    {
+                        "example": "\"192.168.1.0/24\"",
+                        "description": "IP-адрес, CIDR или диапазон",
+                        "name": "ip",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "true — запись добавлена, false — уже существует",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный IP/CIDR/диапазон или отсутствует тело запроса",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сохранения",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет IP-адрес, CIDR-подсеть или диапазон из списка. Возвращает false, если записи не было.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Удалить запись из IP-списка",
+                "parameters": [
+                    {
+                        "example": "\"192.168.1.0/24\"",
+                        "description": "IP-адрес, CIDR или диапазон",
+                        "name": "ip",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "true — запись удалена, false — не найдена",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный IP или отсутствует тело запроса",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сохранения",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ip/check": {
+            "get": {
+                "description": "Определяет, в каком списке находится IP-адрес (black/gray/white/none).\nПорядок проверки: blacklist → graylist → whitelist → none.\nIP можно передать через query-параметр, тело запроса (JSON-строка) или он будет взят из RemoteAddr.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Проверить принадлежность IP к спискам",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "192.168.1.1",
+                        "description": "Проверяемый IP-адрес",
+                        "name": "ip",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Результат проверки",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CheckIpResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный IP-адрес",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ip/denials": {
+            "get": {
+                "description": "Возвращает агрегированную статистику отказов: сколько раз каждый IP был заблокирован и по какой причине.\nИсточники записей: blacklist (403), graylist (429/CAPTCHA), not_in_whitelist (403 при default_deny=true).\nЗаписи накапливаются с момента запуска сервера (in-memory хранилище).\n\nПоля ответа:\n- `ip`: IP-адрес\n- `denials`: суммарное количество отказов\n- `last_denied`: время последнего отказа (RFC3339)\n- `reason`: последняя причина (\"blacklist\" | \"graylist\" | \"not_in_whitelist\")",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Статистика отказов доступа",
+                "responses": {
+                    "200": {
+                        "description": "Список записей об отказах",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.DenialStat"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ip/graylist": {
+            "get": {
+                "description": "Возвращает все записи из выбранного списка (IP-адреса, CIDR-подсети, диапазоны).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Получить IP-список",
+                "responses": {
+                    "200": {
+                        "description": "Карта записей: ключ — IP/CIDR/диапазон, значение — true",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Добавляет IP-адрес, CIDR-подсеть (например 10.0.0.0/8) или диапазон (192.168.1.1-192.168.1.254) в список. Дубликаты игнорируются.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Добавить запись в IP-список",
+                "parameters": [
+                    {
+                        "example": "\"192.168.1.0/24\"",
+                        "description": "IP-адрес, CIDR или диапазон",
+                        "name": "ip",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "true — запись добавлена, false — уже существует",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный IP/CIDR/диапазон или отсутствует тело запроса",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сохранения",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет IP-адрес, CIDR-подсеть или диапазон из списка. Возвращает false, если записи не было.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Удалить запись из IP-списка",
+                "parameters": [
+                    {
+                        "example": "\"192.168.1.0/24\"",
+                        "description": "IP-адрес, CIDR или диапазон",
+                        "name": "ip",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "true — запись удалена, false — не найдена",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный IP или отсутствует тело запроса",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сохранения",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ip/whitelist": {
+            "get": {
+                "description": "Возвращает все записи из выбранного списка (IP-адреса, CIDR-подсети, диапазоны).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Получить IP-список",
+                "responses": {
+                    "200": {
+                        "description": "Карта записей: ключ — IP/CIDR/диапазон, значение — true",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Добавляет IP-адрес, CIDR-подсеть (например 10.0.0.0/8) или диапазон (192.168.1.1-192.168.1.254) в список. Дубликаты игнорируются.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Добавить запись в IP-список",
+                "parameters": [
+                    {
+                        "example": "\"192.168.1.0/24\"",
+                        "description": "IP-адрес, CIDR или диапазон",
+                        "name": "ip",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "true — запись добавлена, false — уже существует",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный IP/CIDR/диапазон или отсутствует тело запроса",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сохранения",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет IP-адрес, CIDR-подсеть или диапазон из списка. Возвращает false, если записи не было.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IP-управление"
+                ],
+                "summary": "Удалить запись из IP-списка",
+                "parameters": [
+                    {
+                        "example": "\"192.168.1.0/24\"",
+                        "description": "IP-адрес, CIDR или диапазон",
+                        "name": "ip",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "true — запись удалена, false — не найдена",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный IP или отсутствует тело запроса",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сохранения",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/metrics": {
+            "get": {
+                "description": "Возвращает агрегированные метрики с момента запуска: количество запросов, ошибок, трафик, RPS, латентность, активные соединения.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Мониторинг"
+                ],
+                "summary": "Метрики сервера",
+                "responses": {
+                    "200": {
+                        "description": "Снимок метрик",
+                        "schema": {
+                            "$ref": "#/definitions/metrics.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
+        "/ratelimit": {
+            "get": {
+                "description": "GET — возвращает все правила. POST — создаёт новое правило для IP или подсети.\n\nПоля правила (все лимиты -1 = отключён):\n- `target`: \"ip\" или \"subnet\"\n- `value`: конкретный IP или CIDR (например 10.0.0.0/8)\n- `max_rps` / `max_rpm` / `max_rph` / `max_rpd`: лимиты запросов\n- `max_upload_bps` / `max_download_bps`: лимиты пропускной способности (байт/с)\n- `max_traffic_day`: дневной лимит трафика (байт)\n- `max_concurrent`: макс. одновременных соединений\n- `max_new_per_second`: макс. новых соединений в секунду",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rate Limiting"
+                ],
+                "summary": "Управление правилами rate limiting",
+                "parameters": [
+                    {
+                        "description": "Правило rate limiting (только для POST)",
+                        "name": "rule",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/domain.RateRule"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Список всех правил",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.RateRule"
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "Правило создано: {\\\"status\\\":\\\"ok\\\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный JSON или отсутствует поле value/target",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Метод не поддерживается",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сохранения",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "GET — возвращает все правила. POST — создаёт новое правило для IP или подсети.\n\nПоля правила (все лимиты -1 = отключён):\n- `target`: \"ip\" или \"subnet\"\n- `value`: конкретный IP или CIDR (например 10.0.0.0/8)\n- `max_rps` / `max_rpm` / `max_rph` / `max_rpd`: лимиты запросов\n- `max_upload_bps` / `max_download_bps`: лимиты пропускной способности (байт/с)\n- `max_traffic_day`: дневной лимит трафика (байт)\n- `max_concurrent`: макс. одновременных соединений\n- `max_new_per_second`: макс. новых соединений в секунду",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rate Limiting"
+                ],
+                "summary": "Управление правилами rate limiting",
+                "parameters": [
+                    {
+                        "description": "Правило rate limiting (только для POST)",
+                        "name": "rule",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/domain.RateRule"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Список всех правил",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.RateRule"
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "Правило создано: {\\\"status\\\":\\\"ok\\\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный JSON или отсутствует поле value/target",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Метод не поддерживается",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сохранения",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ratelimit/violators": {
+            "get": {
+                "description": "Возвращает список IP-адресов, заблокированных за превышение лимитов. Записи автоматически удаляются по истечении BannedUntil.\n\nПоля ответа:\n- `ip`: IP-адрес нарушителя\n- `endpoint`: URL, на котором было превышение\n- `blocked_at`: время блокировки (RFC3339)\n- `banned_until`: время снятия блокировки (RFC3339)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rate Limiting"
+                ],
+                "summary": "Список нарушителей rate limiting",
+                "responses": {
+                    "200": {
+                        "description": "Список нарушителей",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Violator"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ratelimit/violators/{ip}/unban": {
+            "post": {
+                "description": "Досрочно снимает блокировку с IP-адреса, нарушившего rate limit. IP передаётся в пути URL.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rate Limiting"
+                ],
+                "summary": "Разблокировать IP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "1.2.3.4",
+                        "description": "IP-адрес для разблокировки",
+                        "name": "ip",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"status\\\":\\\"unbanned\\\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "IP не указан в пути",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Метод не поддерживается",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ratelimit/{id}": {
+            "delete": {
+                "description": "Удаляет правило по его UUID. ID правила берётся из пути: /ratelimit/{id}.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rate Limiting"
+                ],
+                "summary": "Удалить правило rate limiting",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "550e8400-e29b-41d4-a716-446655440000",
+                        "description": "UUID правила",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Правило удалено: {\\\"status\\\":\\\"deleted\\\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "ID правила не указан",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Метод не поддерживается",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка удаления",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/top-clients": {
+            "get": {
+                "description": "Возвращает список клиентских IP, отсортированных по выбранному критерию. Данные накапливаются через middleware с момента старта.\n\nПараметр `sort`:\n- `requests` (по умолчанию) — по количеству запросов\n- `traffic` — по объёму трафика (МБ)\n- `errors` — по проценту ошибок\n\nПоля ответа:\n- `ip`: IP-адрес клиента\n- `requests`: суммарное количество запросов\n- `traffic_mb`: суммарный трафик (МБ)\n- `avg_latency_ms`: средняя задержка (мс)\n- `error_rate`: процент ответов 4xx/5xx\n- `last_seen`: время последнего запроса (HH:MM:SS)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Мониторинг"
+                ],
+                "summary": "Топ клиентов",
+                "parameters": [
+                    {
+                        "enum": [
+                            "requests",
+                            "traffic",
+                            "errors"
+                        ],
+                        "type": "string",
+                        "default": "requests",
+                        "description": "Поле сортировки: requests, traffic, errors",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Максимальное количество записей",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Топ клиентов",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.ClientStat"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный параметр",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "domain.ClientStat": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
+                    "type": "number",
+                    "example": 18.3
+                },
+                "country": {
+                    "type": "string",
+                    "example": "RU"
+                },
+                "error_rate": {
+                    "type": "number",
+                    "example": 1.2
+                },
+                "ip": {
+                    "type": "string",
+                    "example": "1.2.3.4"
+                },
+                "last_seen": {
+                    "type": "string",
+                    "example": "13:05:00"
+                },
+                "requests": {
+                    "type": "integer",
+                    "example": 4200
+                },
+                "traffic_mb": {
+                    "type": "number",
+                    "example": 12.5
+                }
+            }
+        },
+        "domain.DenialStat": {
+            "type": "object",
+            "properties": {
+                "denials": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "ip": {
+                    "type": "string",
+                    "example": "1.2.3.4"
+                },
+                "last_denied": {
+                    "type": "string",
+                    "example": "2026-05-06T13:00:00+04:00"
+                },
+                "reason": {
+                    "type": "string",
+                    "enum": [
+                        "blacklist",
+                        "graylist",
+                        "not_in_whitelist"
+                    ],
+                    "example": "blacklist"
+                }
+            }
+        },
+        "domain.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.RateRule": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "max_concurrent": {
+                    "description": "Connection limits (-1 = disabled)",
+                    "type": "integer",
+                    "example": 100
+                },
+                "max_download_bps": {
+                    "type": "integer",
+                    "example": 1048576
+                },
+                "max_new_per_second": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "max_rpd": {
+                    "type": "integer",
+                    "example": 100000
+                },
+                "max_rph": {
+                    "type": "integer",
+                    "example": 10000
+                },
+                "max_rpm": {
+                    "type": "integer",
+                    "example": 1000
+                },
+                "max_rps": {
+                    "description": "Request rate limits (-1 = disabled)",
+                    "type": "integer",
+                    "example": 100
+                },
+                "max_traffic_day": {
+                    "description": "Daily total traffic limit in bytes (-1 = disabled)",
+                    "type": "integer",
+                    "example": 104857600
+                },
+                "max_upload_bps": {
+                    "description": "Bandwidth limits in bytes/s (-1 = disabled)",
+                    "type": "integer",
+                    "example": 1048576
+                },
+                "target": {
+                    "enum": [
+                        "ip",
+                        "subnet"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.RuleTarget"
+                        }
+                    ],
+                    "example": "ip"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "192.168.1.1"
+                }
+            }
+        },
+        "domain.RuleTarget": {
+            "type": "string",
+            "enum": [
+                "ip",
+                "subnet"
+            ],
+            "x-enum-varnames": [
+                "TargetIP",
+                "TargetSubnet"
+            ]
+        },
+        "domain.UpstreamStatus": {
+            "type": "object",
+            "properties": {
+                "errorRate": {
+                    "type": "number",
+                    "example": 0.5
+                },
+                "id": {
+                    "type": "string",
+                    "example": "java-backend"
+                },
+                "lastCheck": {
+                    "type": "string",
+                    "example": "13:05:00"
+                },
+                "latency": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "latencyHistory": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Java Backend"
+                },
+                "requestsTotal": {
+                    "type": "integer",
+                    "example": 1234
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "healthy",
+                        "degraded",
+                        "down"
+                    ],
+                    "example": "healthy"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "http://localhost:8080/health"
+                }
+            }
+        },
+        "domain.Violator": {
+            "type": "object",
+            "properties": {
+                "banned_until": {
+                    "type": "string",
+                    "example": "2026-05-06T13:05:00+04:00"
+                },
+                "blocked_at": {
+                    "type": "string",
+                    "example": "2026-05-06T13:00:00+04:00"
+                },
+                "endpoint": {
+                    "type": "string",
+                    "example": "/api/resource"
+                },
+                "ip": {
+                    "type": "string",
+                    "example": "1.2.3.4"
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "requests": {
+                    "type": "integer",
+                    "example": 150
+                }
+            }
+        },
+        "handlers.CheckIpResponse": {
+            "type": "object",
+            "properties": {
+                "ip": {
+                    "type": "string",
+                    "example": "192.168.1.1"
+                },
+                "list": {
+                    "type": "string",
+                    "enum": [
+                        "white",
+                        "black",
+                        "gray",
+                        "none"
+                    ],
+                    "example": "white"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "доступ разрешён"
+                }
+            }
+        },
+        "metrics.Snapshot": {
+            "type": "object",
+            "properties": {
+                "active_conns": {
+                    "type": "integer",
+                    "example": 17
+                },
+                "avg_latency_ms": {
+                    "type": "number",
+                    "example": 12.4
+                },
+                "rps": {
+                    "type": "number",
+                    "example": 27.8
+                },
+                "total_bytes_in": {
+                    "type": "integer",
+                    "example": 10485760
+                },
+                "total_bytes_out": {
+                    "type": "integer",
+                    "example": 52428800
+                },
+                "total_errors": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "total_requests": {
+                    "type": "integer",
+                    "example": 100000
+                },
+                "uptime_sec": {
+                    "type": "integer",
+                    "example": 3600
+                }
+            }
+        }
+    }
+}
