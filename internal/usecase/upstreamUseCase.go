@@ -66,7 +66,6 @@ func (s *UpstreamService) checkUpstream(idx int) {
 
 	addr := strings.TrimPrefix(up.URL, "http://")
 	addr = strings.TrimPrefix(addr, "https://")
-	// strip path for TCP dial
 	if idx := strings.Index(addr, "/"); idx >= 0 {
 		addr = addr[:idx]
 	}

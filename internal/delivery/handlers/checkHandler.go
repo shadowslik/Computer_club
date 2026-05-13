@@ -19,7 +19,6 @@ type denialsRecorder interface {
 	Record(ip, reason string)
 }
 
-// CheckIpResponse describes the result of an IP membership check.
 type CheckIpResponse struct {
 	IP      string `json:"ip"      example:"192.168.1.1"`
 	List    string `json:"list"    example:"white"          enums:"white,black,gray,none"`

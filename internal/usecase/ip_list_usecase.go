@@ -8,26 +8,26 @@ import (
 	"strings"
 )
 
-type HTTPUseCase struct {
+type ListUseCase struct {
 	repo domain.IpRepo
 }
 
-func NewHTTPUseCase(repo domain.IpRepo) *HTTPUseCase {
-	return &HTTPUseCase{repo: repo}
+func NewListUseCase(repo domain.IpRepo) *ListUseCase {
+	return &ListUseCase{repo: repo}
 }
 
-func (uc *HTTPUseCase) GetAll() (map[string]bool, error) {
+func (uc *ListUseCase) GetAll() (map[string]bool, error) {
 	return uc.repo.GetAll()
 }
 
-func (uc *HTTPUseCase) IsAllowed(ctx context.Context, ip string) (bool, error) {
+func (uc *ListUseCase) IsAllowed(ctx context.Context, ip string) (bool, error) {
 	if !checkIp(ip) {
 		return false, errors.New("ip address is not valid")
 	}
 	return uc.repo.IsAllowed(ctx, ip)
 }
 
-func (uc *HTTPUseCase) Add(ctx context.Context, ip string) (bool, error) {
+func (uc *ListUseCase) Add(ctx context.Context, ip string) (bool, error) {
 	if !checkIp(ip) {
 		return false, errors.New("ip address is not valid")
 	}
@@ -44,7 +44,7 @@ func (uc *HTTPUseCase) Add(ctx context.Context, ip string) (bool, error) {
 	return true, nil
 }
 
-func (uc *HTTPUseCase) Remove(ctx context.Context, ip string) (bool, error) {
+func (uc *ListUseCase) Remove(ctx context.Context, ip string) (bool, error) {
 	if !checkIp(ip) {
 		return false, errors.New("ip address is not valid")
 	}

@@ -8,11 +8,12 @@ import (
 )
 
 type RateLimitHandler struct {
-	uc domain.RateLimitUseCase
+	uc        domain.RateLimitUseCase
+	cacheRepo domain.CacheRepo
 }
 
-func NewRateLimitHandler(uc domain.RateLimitUseCase) *RateLimitHandler {
-	return &RateLimitHandler{uc: uc}
+func NewRateLimitHandler(uc domain.RateLimitUseCase, cacheRepo domain.CacheRepo) *RateLimitHandler {
+	return &RateLimitHandler{uc: uc, cacheRepo: cacheRepo}
 }
 
 // ListHandler godoc
@@ -96,6 +97,9 @@ func (h *RateLimitHandler) addRule(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "ошибка добавления правила")
 		return
 	}
+	if h.cacheRepo != nil {
+		h.cacheRepo.DeleteByTag("ratelimit")
+	}
 	respondWithJSON(w, http.StatusCreated, map[string]string{"status": "ok"})
 }
 
@@ -108,6 +112,9 @@ func (h *RateLimitHandler) removeRule(w http.ResponseWriter, r *http.Request) {
 	if err := h.uc.RemoveRule(r.Context(), id); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "ошибка удаления правила")
 		return
+	}
+	if h.cacheRepo != nil {
+		h.cacheRepo.DeleteByTag("ratelimit")
 	}
 	respondWithJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }

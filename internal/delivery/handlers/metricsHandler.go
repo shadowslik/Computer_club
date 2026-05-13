@@ -24,6 +24,7 @@ func NewMetricsHandler(c *metrics.Collector) *MetricsHandler {
 func (h *MetricsHandler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	snap := h.collector.Snapshot()
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(snap)
 }
 
@@ -37,10 +38,18 @@ func (h *MetricsHandler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 func (h *MetricsHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	snap := h.collector.Snapshot()
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(map[string]any{
 		"status":   "ok",
 		"uptime_s": snap.UptimeSec,
 		"rps":      snap.RPS,
 		"conns":    snap.ActiveConns,
 	})
+}
+
+func (h *MetricsHandler) HandleHistory(w http.ResponseWriter, r *http.Request) {
+	history := h.collector.GetHistory()
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(history)
 }

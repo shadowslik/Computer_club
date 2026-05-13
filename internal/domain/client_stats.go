@@ -1,9 +1,7 @@
 package domain
 
-// ClientStat holds per-IP aggregated request statistics collected by middleware.
 type ClientStat struct {
 	IP           string  `json:"ip"            example:"1.2.3.4"`
-	Country      string  `json:"country"       example:"RU"`
 	Requests     int64   `json:"requests"      example:"4200"`
 	TrafficMB    float64 `json:"traffic_mb"    example:"12.5"`
 	AvgLatencyMs float64 `json:"avg_latency_ms" example:"18.3"`

@@ -823,10 +823,6 @@
                     "type": "number",
                     "example": 18.3
                 },
-                "country": {
-                    "type": "string",
-                    "example": "RU"
-                },
                 "error_rate": {
                     "type": "number",
                     "example": 1.2

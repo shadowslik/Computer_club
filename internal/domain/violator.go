@@ -2,7 +2,6 @@ package domain
 
 import "time"
 
-// Violator represents a client that exceeded rate limits and is currently banned.
 type Violator struct {
 	IP          string    `json:"ip"           example:"1.2.3.4"`
 	Endpoint    string    `json:"endpoint"     example:"/api/resource"`
@@ -16,4 +15,5 @@ type ViolatorsRepo interface {
 	Add(v Violator)
 	GetAll() []Violator
 	Remove(ip string)
+	IsBanned(ip string) bool
 }

@@ -41,6 +41,17 @@ func (r *ViolatorsRepo) Remove(ip string) {
 	delete(r.violators, ip)
 }
 
+func (r *ViolatorsRepo) IsBanned(ip string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	v, ok := r.violators[ip]
+	if !ok {
+		return false
+	}
+	return time.Now().Before(v.BannedUntil)
+}
+
 func (r *ViolatorsRepo) cleanExpired() {
 	ticker := time.NewTicker(1 * time.Minute)
 	for range ticker.C {

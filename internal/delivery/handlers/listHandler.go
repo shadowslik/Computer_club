@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"proxy/internal/domain"
+
 	"go.uber.org/zap"
 )
 
@@ -18,10 +20,12 @@ type ipListUseCase interface {
 type Handler struct {
 	ListUseCase ipListUseCase
 	log         *zap.Logger
+	cacheRepo   domain.CacheRepo
+	cacheTag    string
 }
 
-func NewHandler(listUseCase ipListUseCase, log *zap.Logger) *Handler {
-	return &Handler{ListUseCase: listUseCase, log: log}
+func NewHandler(listUseCase ipListUseCase, log *zap.Logger, cacheRepo domain.CacheRepo, cacheTag string) *Handler {
+	return &Handler{ListUseCase: listUseCase, log: log, cacheRepo: cacheRepo, cacheTag: cacheTag}
 }
 
 // getIp godoc
@@ -69,6 +73,9 @@ func (h *Handler) addIp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.cacheRepo != nil && h.cacheTag != "" {
+		h.cacheRepo.DeleteByTag(h.cacheTag)
+	}
 	h.log.Info("IP added to list", zap.String("ip", ip))
 	respondWithJSON(w, http.StatusOK, res)
 }
@@ -98,10 +105,13 @@ func (h *Handler) deleteIp(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "ошибка удаления IP")
 		return
 	}
+
+	if h.cacheRepo != nil && h.cacheTag != "" {
+		h.cacheRepo.DeleteByTag(h.cacheTag)
+	}
 	respondWithJSON(w, http.StatusOK, res)
 }
 
-// ListHandler routes GET/POST/DELETE for an IP list.
 func (h *Handler) ListHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

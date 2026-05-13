@@ -4,10 +4,9 @@ type UpstreamTarget struct {
 	ID   string
 	Name string
 	URL  string
-	Type string // "http" or "tcp"
+	Type string
 }
 
-// UpstreamStatus contains real-time health information about an upstream service.
 type UpstreamStatus struct {
 	ID             string  `json:"id"             example:"java-backend"`
 	Name           string  `json:"name"           example:"Java Backend"`

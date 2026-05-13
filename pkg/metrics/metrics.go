@@ -13,6 +13,8 @@ type Collector struct {
 	totalBytesIn  atomic.Int64
 	totalBytesOut atomic.Int64
 	activeConns   atomic.Int64
+	rpsHistory    []float64
+	historyMu     sync.RWMutex
 
 	mu    sync.RWMutex
 	rps   float64
@@ -20,7 +22,10 @@ type Collector struct {
 }
 
 func NewCollector() *Collector {
-	return &Collector{startedAt: time.Now()}
+	return &Collector{
+		startedAt:  time.Now(),
+		rpsHistory: make([]float64, 0),
+	}
 }
 
 func (c *Collector) RecordRequest(latencyMs int64, isError bool) {
@@ -28,11 +33,28 @@ func (c *Collector) RecordRequest(latencyMs int64, isError bool) {
 	if isError {
 		c.totalErrors.Add(1)
 	}
+
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	total := float64(c.totalRequests.Load())
 	c.rps = total / time.Since(c.startedAt).Seconds()
 	c.avgMs = (c.avgMs*(total-1) + float64(latencyMs)) / total
+	currentRPS := c.rps
+	c.mu.Unlock()
+
+	c.historyMu.Lock()
+	c.rpsHistory = append(c.rpsHistory, currentRPS)
+	if len(c.rpsHistory) > 60 {
+		c.rpsHistory = c.rpsHistory[1:]
+	}
+	c.historyMu.Unlock()
+}
+
+func (c *Collector) GetHistory() []float64 {
+	c.historyMu.RLock()
+	defer c.historyMu.RUnlock()
+	out := make([]float64, len(c.rpsHistory))
+	copy(out, c.rpsHistory)
+	return out
 }
 
 func (c *Collector) RecordTraffic(bytesIn, bytesOut int64) {
@@ -43,7 +65,6 @@ func (c *Collector) RecordTraffic(bytesIn, bytesOut int64) {
 func (c *Collector) IncConns() { c.activeConns.Add(1) }
 func (c *Collector) DecConns() { c.activeConns.Add(-1) }
 
-// Snapshot is a point-in-time view of server metrics.
 type Snapshot struct {
 	UptimeSec     int64   `json:"uptime_sec"      example:"3600"`
 	TotalRequests int64   `json:"total_requests"  example:"100000"`

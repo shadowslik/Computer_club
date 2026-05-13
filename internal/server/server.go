@@ -13,6 +13,19 @@ import (
 	"go.uber.org/zap"
 )
 
+type denialsWriter interface {
+	Record(ip, reason string)
+}
+
+type violatorsBanner interface {
+	IsBanned(ip string) bool
+	Add(v domain.Violator)
+}
+
+type statsWriter interface {
+	Update(stat domain.ClientStat)
+}
+
 type Server struct {
 	httpServer *http.Server
 	log        *zap.Logger
@@ -32,9 +45,12 @@ type Deps struct {
 	StatsHandler     *handlers.ClientStatsHandler
 	ViolatorsHandler *handlers.ViolatorsHandler
 	DenialsHandler   *handlers.DenialsHandler
-	DenialsRepo      domain.DenialsRepo
-	ViolatorsRepo    domain.ViolatorsRepo
-	StatsRepo        domain.ClientStatsRepo
+	DenialsUC        denialsWriter
+	ViolatorsUC      violatorsBanner
+	StatsUC          statsWriter
+	CacheRepo        domain.CacheRepo
+	CacheHandler     *handlers.CacheHandler
+	ProxyHandler     http.Handler
 }
 
 func NewServer(deps Deps) *Server {

@@ -12,9 +12,11 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	_ "proxy/docs"
 	"proxy/internal/config"
@@ -48,7 +50,6 @@ func main() {
 
 	log.Info("config loaded", zap.String("path", cfgPath))
 
-	// --- Repositories ---
 	whiteRepo, err := repository.NewIpRepoImpl(cfg.Lists.WhitelistFile, cfg.Lists.CacheSize, cfg.Lists.CacheTTL, log)
 	if err != nil {
 		log.Fatal("failed to load whitelist", zap.Error(err))
@@ -70,10 +71,18 @@ func main() {
 	violatorsRepo := repository.NewViolatorsRepo()
 	statsRepo := repository.NewClientStatsRepo()
 
-	// --- Use Cases ---
-	whiteUC := usecase.NewHTTPUseCase(whiteRepo)
-	blackUC := usecase.NewHTTPUseCase(blackRepo)
-	grayUC := usecase.NewHTTPUseCase(grayRepo)
+	cascadeRules := make([]domain.CacheCascadeRule, len(cfg.Cache.CascadeRules))
+	for i, r := range cfg.Cache.CascadeRules {
+		cascadeRules[i] = domain.CacheCascadeRule{TriggerTag: r.TriggerTag, CascadeTags: r.CascadeTags}
+	}
+	cacheRepo := repository.NewCacheRepo(cfg.Cache.MaxSize, time.Minute, cascadeRules)
+	if cfg.Cache.Enabled {
+		cacheRepo.StartChangeDetector(5*time.Minute, &http.Client{Timeout: 3 * time.Second})
+	}
+
+	whiteUC := usecase.NewListUseCase(whiteRepo)
+	blackUC := usecase.NewListUseCase(blackRepo)
+	grayUC := usecase.NewListUseCase(grayRepo)
 	rlUC := usecase.NewRateLimitService(rlRepo, cfg)
 	denialsUC := usecase.NewDenialsUseCase(denialsRepo)
 	violatorsUC := usecase.NewViolatorsUseCase(violatorsRepo)
@@ -85,18 +94,27 @@ func main() {
 	}
 	upstreamSvc := usecase.NewUpstreamService(targets)
 
-	// --- Handlers ---
-	whiteH := handlers.NewHandler(whiteUC, log)
-	blackH := handlers.NewHandler(blackUC, log)
-	grayH := handlers.NewHandler(grayUC, log)
-	checkH := handlers.NewCheckIpHandler(whiteUC, blackUC, grayUC, log, denialsRepo)
-	rlH := handlers.NewRateLimitHandler(rlUC)
+	whiteH := handlers.NewHandler(whiteUC, log, cacheRepo, "whitelist")
+	blackH := handlers.NewHandler(blackUC, log, cacheRepo, "blacklist")
+	grayH := handlers.NewHandler(grayUC, log, cacheRepo, "graylist")
+	checkH := handlers.NewCheckIpHandler(whiteUC, blackUC, grayUC, log, denialsUC)
+	rlH := handlers.NewRateLimitHandler(rlUC, cacheRepo)
 	upstreamH := handlers.NewUpstreamHandler(upstreamSvc)
 	statsH := handlers.NewClientStatsHandler(statsUC)
 	violatorsH := handlers.NewViolatorsHandler(violatorsUC)
 	denialsH := handlers.NewDenialsHandler(denialsUC)
+	cacheH := handlers.NewCacheHandler(cacheRepo)
 
 	col := metrics.NewCollector()
+
+	var proxyH http.Handler
+	if cfg.Server.ProxyTarget != "" {
+		proxyH, err = handlers.NewProxyHandler(cfg.Server.ProxyTarget)
+		if err != nil {
+			log.Fatal("failed to create proxy handler", zap.Error(err))
+		}
+		log.Info("proxy target configured", zap.String("target", cfg.Server.ProxyTarget))
+	}
 
 	srv := server.NewServer(server.Deps{
 		Cfg:              cfg,
@@ -112,15 +130,17 @@ func main() {
 		StatsHandler:     statsH,
 		ViolatorsHandler: violatorsH,
 		DenialsHandler:   denialsH,
-		DenialsRepo:      denialsRepo,
-		ViolatorsRepo:    violatorsRepo,
-		StatsRepo:        statsRepo,
+		DenialsUC:        denialsUC,
+		ViolatorsUC:      violatorsUC,
+		StatsUC:          statsUC,
+		CacheRepo:        cacheRepo,
+		CacheHandler:     cacheH,
+		ProxyHandler:     proxyH,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	log.Info("server starting", zap.String("port", cfg.Server.Port))
 	if err := srv.Run(ctx); err != nil {
 		log.Fatal("server error", zap.Error(err))
 	}

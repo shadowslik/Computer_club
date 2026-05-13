@@ -17,9 +17,6 @@ type ipFile struct {
 	IPs []string `json:"ip"`
 }
 
-// IpRepoImpl stores IP lists on disk and provides fast in-memory lookup.
-// Matching is delegated to github.com/shadowslik/go-ipfilter which uses a
-// Patricia trie for CIDR subnets and an expirable LRU cache for hot IPs.
 type IpRepoImpl struct {
 	mu       sync.RWMutex
 	rawList  []string

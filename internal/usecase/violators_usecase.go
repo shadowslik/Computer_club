@@ -21,3 +21,7 @@ func (uc *ViolatorsUseCase) GetAll() []domain.Violator {
 func (uc *ViolatorsUseCase) Unban(ip string) {
 	uc.repo.Remove(ip)
 }
+
+func (uc *ViolatorsUseCase) IsBanned(ip string) bool {
+	return uc.repo.IsBanned(ip)
+}

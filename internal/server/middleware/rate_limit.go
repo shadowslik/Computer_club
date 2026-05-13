@@ -14,12 +14,17 @@ type clientStatsUpdater interface {
 	Update(stat domain.ClientStat)
 }
 
+type violatorsBanner interface {
+	IsBanned(ip string) bool
+	Add(v domain.Violator)
+}
+
 func RateLimitMiddleware(
 	uc domain.RateLimitUseCase,
 	log *zap.Logger,
 	col *metrics.Collector,
 	statsUpdater clientStatsUpdater,
-	violatorsRepo domain.ViolatorsRepo,
+	violators violatorsBanner,
 	banDuration time.Duration,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -29,6 +34,11 @@ func RateLimitMiddleware(
 			ip, _, err := net.SplitHostPort(r.RemoteAddr)
 			if err != nil {
 				ip = r.RemoteAddr
+			}
+
+			if violators.IsBanned(ip) {
+				writeJSONError(w, http.StatusTooManyRequests, "вы временно заблокированы")
+				return
 			}
 
 			col.IncConns()
@@ -82,7 +92,7 @@ func RateLimitMiddleware(
 				writeJSONError(w, http.StatusTooManyRequests, result.Reason)
 				col.RecordRequest(time.Since(start).Milliseconds(), true)
 
-				violatorsRepo.Add(domain.Violator{
+				violators.Add(domain.Violator{
 					IP:          ip,
 					Endpoint:    r.URL.Path,
 					BlockedAt:   time.Now(),
@@ -131,7 +141,7 @@ func RateLimitMiddleware(
 				TrafficMB:    float64(uploadBytes+downloadBytes) / (1024 * 1024),
 				AvgLatencyMs: float64(latencyMs),
 				ErrorRate:    errorRate(sr.status),
-				LastSeen:     time.Now().Format("15:04:05"),
+				LastSeen:     time.Now().Format(time.RFC3339),
 			})
 		})
 	}

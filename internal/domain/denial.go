@@ -2,7 +2,6 @@ package domain
 
 import "time"
 
-// DenialStat represents aggregated access denial statistics for one IP.
 type DenialStat struct {
 	IP         string    `json:"ip"          example:"1.2.3.4"`
 	Denials    int64     `json:"denials"     example:"42"`
