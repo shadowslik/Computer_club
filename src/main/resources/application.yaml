@@ -13,3 +13,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+
+bank:
+  host: 192.168.1.67
+  port: 8082
+  card:
+    number: 4535345315706872
