@@ -57,7 +57,6 @@ public class SessionService {
     public List<ResponseLastUserSessions> getLastUserSessions(Long id){
         userService.checkUserId(id);
         return sessionRepo.findTop4ByUser_IdOrderByStartTimeDesc(id).stream().map(DtoMapper::sessionToResponseLastUserSessions).toList();
-
     }
 
     @Transactional

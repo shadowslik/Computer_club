@@ -3,7 +3,6 @@ package ru.kolobanov.pc.club.controllers;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import ru.kolobanov.pc.club.controllers.dto.*;
@@ -28,7 +27,7 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<ResponseUser>> getUsers(@RequestParam int page,
                                                           @RequestParam int size){
-        return ResponseEntity.status(HttpStatus.OK).body(userService.getUsers(page,size).getContent());
+        return ResponseEntity.status(HttpStatus.OK).body(userService.getUsers(page,size));
     }
 
     @GetMapping("/id")
@@ -42,27 +41,25 @@ public class UserController {
     @GetMapping("/sort_by_balance")
     public ResponseEntity<List<ResponseUserTopByBalance>> getAllUsersOrderByBalance(@RequestParam int page,
                                                                                     @RequestParam int size){
-        return ResponseEntity.status(HttpStatus.OK).body(userService.getUsersOrderByBalance(page,size)
-                .getContent());
+        return ResponseEntity.status(HttpStatus.OK).body(userService.getUsersOrderByBalance(page,size));
     }
 
     @GetMapping("/sort_by_count_sessions")
     public ResponseEntity<List<ResponseUserTopBySessions>> getAllUsersOrderByCountSessions(@RequestParam int page,
                                                                                            @RequestParam int size){
-        return ResponseEntity.status(HttpStatus.OK).body(userService.getUsersOrderByCountSessions(page,size)
-                .getContent());
+        return ResponseEntity.status(HttpStatus.OK).body(userService.getUsersOrderByCountSessions(page,size));
     }
 
     @GetMapping("/sort_by_count_hours")
     public ResponseEntity<List<ResponseUserTopByHours>> getAllUsersOrderByHours(@RequestParam int page,
                                                                                 @RequestParam int size){
-        return ResponseEntity.status(HttpStatus.OK).body(userService.getUsersOrderByHours(page,size)
-                .getContent());
+        return ResponseEntity.status(HttpStatus.OK).body(userService.getUsersOrderByHours(page,size));
     }
 
     @PostMapping
-    public ResponseEntity<ResponseUser> registrationUser(@Valid @RequestBody RequestRegistrationUser requestRegistrationUser){
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.saveRegistrationUser(requestRegistrationUser));
+    public ResponseEntity<ResponseUser> registrationUser(@Valid @RequestBody RequestRegistrationUser requestRegistrationUser,
+                                                         @RequestParam(required = false) Long token){
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.saveRegistrationUser(requestRegistrationUser,token));
     }
 
     @PostMapping("/login")
@@ -71,13 +68,17 @@ public class UserController {
     }
 
     @PatchMapping
-    public ResponseEntity<ResponseUser> updateUser(@Valid @RequestBody RequestUpdateUser requestUpdateUser){
-        return ResponseEntity.status(HttpStatus.OK).body(userService.update(requestUpdateUser));
+    public ResponseEntity<ResponseUser> updateUser(@RequestParam @Min(value = 1,message = "id пользователя должен быть больше 0")
+                                                       Long id,@Valid @RequestBody RequestUpdateUser requestUpdateUser){
+        return ResponseEntity.status(HttpStatus.OK).body(userService.update(id,requestUpdateUser));
     }
 
     @PatchMapping("/balance")
-    public ResponseEntity<ResponseUser> updateBalance(@Valid @RequestBody RequestTopUpUserBalance requestTopUpUserBalance){
-        return ResponseEntity.status(HttpStatus.OK).body(userService.addBalance(requestTopUpUserBalance));
+    public ResponseEntity<ResponseUser> updateBalance(@RequestParam @Min(value = 1,message = "id пользователя должен быть больше 0")
+                                                          Long id,
+                                                      @RequestParam @Min(value = 10, message = "Пополнение только от 10 руб")
+                                                      Double amount){
+        return ResponseEntity.status(HttpStatus.OK).body(userService.addBalance(id,amount));
 
     }
 

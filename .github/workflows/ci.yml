@@ -1,0 +1,57 @@
+name: CI/CD
+
+# Когда запускать: на push в любую ветку и на каждый Pull Request
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+
+jobs:
+  # ───────── CI: собрать проект ─────────
+  build:
+    runs-on: ubuntu-latest          # GitHub поднимет чистую Ubuntu-виртуалку
+    steps:
+      - name: Checkout кода
+        uses: actions/checkout@v4    # скачать репозиторий в виртуалку
+
+      - name: Поставить JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven               # кэшировать ~/.m2, чтобы не качать зависимости каждый раз
+
+      - name: Сборка (Maven)
+        run: mvn -B package          # скомпилировать + собрать jar
+
+      - name: Сохранить jar как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/*.jar
+
+  # ───────── CD: собрать и запушить Docker-образ ─────────
+  docker:
+    needs: build                     # запустится только если build прошёл успешно
+    if: github.ref == 'refs/heads/backend'   # только для ветки backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write                # право пушить образ в GitHub Container Registry
+    steps:
+      - name: Checkout кода
+        uses: actions/checkout@v4
+
+      - name: Логин в GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # встроенный токен, свои секреты не нужны
+
+      - name: Сборка и push образа
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest

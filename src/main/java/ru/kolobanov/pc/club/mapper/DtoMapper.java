@@ -1,9 +1,6 @@
 package ru.kolobanov.pc.club.mapper;
 import ru.kolobanov.pc.club.controllers.dto.*;
-import ru.kolobanov.pc.club.entity.Computer;
-import ru.kolobanov.pc.club.entity.Session;
-import ru.kolobanov.pc.club.entity.ComputerType;
-import ru.kolobanov.pc.club.entity.User;
+import ru.kolobanov.pc.club.entity.*;
 
 import java.time.temporal.ChronoUnit;
 
@@ -19,6 +16,7 @@ public class DtoMapper {
         responseUser.setBalance(user.getBalance());
         responseUser.setComputerSessions(user.getSessions().size());
         responseUser.setHours(user.getHours());
+        responseUser.setToken(user.getToken());
 
         return responseUser;
     }
@@ -144,6 +142,18 @@ public class DtoMapper {
         return computerType;
     }
 
+    public static RequestUpdateComputerType computerTypeToUpdateRequest(ComputerType computerType){
+
+        RequestUpdateComputerType requestUpdateComputerType = new RequestUpdateComputerType();
+
+        requestUpdateComputerType.setId(computerType.getId());
+        requestUpdateComputerType.setName(computerType.getName());
+        requestUpdateComputerType.setPricePerHour(computerType.getPricePerHour());
+        requestUpdateComputerType.setDescription(computerType.getDescription());
+
+        return requestUpdateComputerType;
+    }
+
     public static ResponseComputerType computerTypeToResponse(ComputerType computerType){
         ResponseComputerType responseComputerType = new ResponseComputerType();
 
@@ -154,5 +164,41 @@ public class DtoMapper {
 
         return responseComputerType;
     }
+
+    public static ResponsePromotionDto promotionToResponse(Promotion promotion){
+        ResponsePromotionDto responsePromotionDto = new ResponsePromotionDto();
+
+        responsePromotionDto.setDescription(promotion.getDescription());
+        responsePromotionDto.setValue(promotion.getValue());
+        responsePromotionDto.setType_name(promotion.getType().getName());
+        responsePromotionDto.setId(promotion.getId());
+        responsePromotionDto.setBeforeValue(promotion.getBeforeValue());
+
+        return responsePromotionDto;
+    }
+
+
+    public static Promotion promotionRequestToPromotion(RequestCreatePromotionDto requestCreatePromotionDto, ComputerType type){
+
+        Promotion promotion = new Promotion();
+
+        promotion.setDescription(requestCreatePromotionDto.getDescription());
+        promotion.setValue(requestCreatePromotionDto.getValue());
+        promotion.setType(type);
+
+        return promotion;
+    }
+
+
+    public static Referrals referralsRequestToReferral(Long sender, Long ref){
+
+        Referrals referrals = new Referrals();
+
+        referrals.setIdSender(sender);
+        referrals.setIdRef(ref);
+
+        return referrals;
+    }
+
 
 }

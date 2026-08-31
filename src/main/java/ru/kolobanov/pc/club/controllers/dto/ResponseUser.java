@@ -14,4 +14,5 @@ public class ResponseUser {
     private Double balance;
     private Double hours;
     private Integer computerSessions;
+    private Long token;
 }

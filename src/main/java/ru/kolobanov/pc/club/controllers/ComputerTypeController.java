@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
+import org.springframework.context.annotation.Scope;
 import org.springframework.validation.annotation.Validated;
 import ru.kolobanov.pc.club.controllers.dto.RequestCreateComputerType;
 import ru.kolobanov.pc.club.controllers.dto.RequestUpdateComputerType;

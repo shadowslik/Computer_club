@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @Entity
@@ -23,8 +22,4 @@ public class ComputerType {
     private Double pricePerHour;
 
     private List<String> description = new ArrayList<>();
-
-    public void addDescriptionPar(String... par){
-        description.addAll(Arrays.asList(par));
-    }
 }

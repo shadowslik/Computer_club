@@ -2,16 +2,23 @@ package ru.kolobanov.pc.club.services;
 
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.*;
 import ru.kolobanov.pc.club.controllers.dto.*;
+import ru.kolobanov.pc.club.entity.Referrals;
 import ru.kolobanov.pc.club.entity.User;
 import ru.kolobanov.pc.club.exeptions.*;
 import ru.kolobanov.pc.club.mapper.DtoMapper;
+import ru.kolobanov.pc.club.repository.ReferralsRepo;
 import ru.kolobanov.pc.club.repository.UserRepo;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Random;
 
 
 @Service
@@ -19,45 +26,64 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     private UserRepo userRepo;
-    private PaymentService paymentService;
+    private ReferralsRepo referralsRepo;
 
-    public Page<ResponseUser> getUsers(int page, int size){
+    @Cacheable(value = "users", key = "#page + '-' + #size")
+    public List<ResponseUser> getUsers(int page, int size){
         Pageable pageable = PageRequest.of(page,size);
-        return userRepo.findAll(pageable).map(DtoMapper::userToResponseUser);
+        return userRepo.findAll(pageable).map(DtoMapper::userToResponseUser).getContent();
     }
 
-    public Page<ResponseUserTopByBalance> getUsersOrderByBalance(int page, int size){
+    @Cacheable(value = "topByBalance", key = "#page + '-' + #size")
+    public List<ResponseUserTopByBalance> getUsersOrderByBalance(int page, int size){
         Pageable pageable = PageRequest.of(page,size);
         return userRepo.findAllOrderByBalance(pageable)
-                .map(DtoMapper::userToResponseTopByBalance);
+                .map(DtoMapper::userToResponseTopByBalance).getContent();
     }
 
-    public Page<ResponseUserTopBySessions> getUsersOrderByCountSessions(int page, int size){
+    @Cacheable(value = "topByCountSessions", key = "#page + '-' + #size")
+    public List<ResponseUserTopBySessions> getUsersOrderByCountSessions(int page, int size){
         Pageable pageable = PageRequest.of(page,size);
         return userRepo.findAllOrderBySessionsCount(pageable)
-                .map(DtoMapper::userToResponseTopBySessions);
+                .map(DtoMapper::userToResponseTopBySessions).getContent();
     }
 
-    public Page<ResponseUserTopByHours> getUsersOrderByHours(int page, int size){
+    @Cacheable(value = "topByHours", key = "#page + '-' + #size")
+    public List<ResponseUserTopByHours> getUsersOrderByHours(int page, int size){
         Pageable pageable = PageRequest.of(page,size);
         return userRepo.findAllOrderByTotalHours(pageable)
-                .map(DtoMapper::userToResponseTopByHours);
+                .map(DtoMapper::userToResponseTopByHours).getContent();
     }
 
+    @Cacheable(value = "user", key = "#id")
     public ResponseUser getUserById(Long id){
         User user =  checkUserId(id);
         return DtoMapper.userToResponseUser(user);
     }
 
     @Transactional
-    public ResponseUser saveRegistrationUser(RequestRegistrationUser requestRegistrationUser){
+    @CacheEvict(value = {"users", "topByHours","topByCountSessions","topByBalance"}, allEntries = true)
+    public ResponseUser saveRegistrationUser(RequestRegistrationUser requestRegistrationUser, Long token){
 
         checkEmail(requestRegistrationUser.getEmail(), 0L);
         checkPhone(requestRegistrationUser.getPhone(),0L);
 
         User user = DtoMapper.requestRegistrationUserToUser(requestRegistrationUser);
 
+        user.setToken(new Random().nextLong(-1000,1001));
+
         userRepo.save(user);
+
+        Long idSender;
+
+        if(token != null){
+
+            idSender = getUserIdByToken(token);
+            Referrals referrals = DtoMapper.referralsRequestToReferral(idSender,user.getId());
+            referralsRepo.save(referrals);
+
+        }
+
 
         return DtoMapper.userToResponseUser(user);
 
@@ -66,12 +92,12 @@ public class UserService {
 
 
     @Transactional
+    @CacheEvict(value = {"users", "topByHours","topByCountSessions","topByBalance","user"}, allEntries = true)
     public boolean deleteUserById(Long id){
         checkUserId(id);
         userRepo.deleteById(id);
         return true;
     }
-
 
 
     public ResponseUser loginUser(RequestLoginUser requestLoginUser){
@@ -94,8 +120,12 @@ public class UserService {
 
 
     @Transactional
-    public ResponseUser update(RequestUpdateUser requestUpdateUser){
-        User user = checkUserId(requestUpdateUser.getId());
+    @Caching(evict = {
+            @CacheEvict( value = {"users","topByHours","topByCountSessions","topByBalance"}, allEntries = true),
+            @CacheEvict(value = "user", key = "#id")
+    })
+    public ResponseUser update(Long id,RequestUpdateUser requestUpdateUser){
+        User user = checkUserId(id);
 
         String email = requestUpdateUser.getEmail();
         String name = requestUpdateUser.getName();
@@ -126,12 +156,26 @@ public class UserService {
     }
 
     @Transactional
-    public ResponseUser addBalance(RequestTopUpUserBalance requestTopUpUserBalance){
-        User user = checkUserId(requestTopUpUserBalance.getUser_id());
+    @Caching(evict = {
+            @CacheEvict( value = {"users","topByBalance"}, allEntries = true),
+            @CacheEvict(value = "user", key = "#id")
+    })
+    public ResponseUser addBalance(Long id,Double amount){
+        User user = checkUserId(id);
 
-        paymentService.receivingPayment(requestTopUpUserBalance);
+        user.setBalance(user.getBalance() + amount);
 
-        user.setBalance(user.getBalance() + requestTopUpUserBalance.getAmount());
+        List<Referrals> referrals = referralsRepo.findAllByIdRef(user.getId());
+
+        if(referrals != null){
+            for(Referrals r: referrals){
+                User senderRef = checkUserId(r.getIdSender());
+                senderRef.setBalance(senderRef.getBalance() + amount*0.05);
+
+                userRepo.save(senderRef);
+
+            }
+        }
 
         userRepo.save(user);
 
@@ -140,6 +184,10 @@ public class UserService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict( value = {"users","topByBalance"}, allEntries = true),
+            @CacheEvict(value = "user", key = "#id")
+    })
     public void updateBalance(Long id,Double balance){
         User user = checkUserId(id);
 
@@ -150,6 +198,10 @@ public class UserService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict( value = {"users","topByHours"}, allEntries = true),
+            @CacheEvict(value = "user", key = "#id")
+    })
     public void updateHours(Long id, Double hours){
         User user = checkUserId(id);
 
@@ -187,6 +239,14 @@ public class UserService {
         }
 
         return true;
+    }
+
+    public Long getUserIdByToken(Long token){
+        User user = userRepo.findUserByToken(token);
+        if(user != null){
+            return user.getId();
+        }
+        return null;
     }
 
 

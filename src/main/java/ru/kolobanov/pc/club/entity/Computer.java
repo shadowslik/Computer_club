@@ -25,5 +25,5 @@ public class Computer {
 
     @OneToMany(mappedBy = "computer", cascade = CascadeType.REMOVE)
     @JsonIgnore
-    private List<Session> sessionsId = new ArrayList<>();
+    private List<Session> sessions = new ArrayList<>();
 }

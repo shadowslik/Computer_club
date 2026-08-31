@@ -34,6 +34,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
     }
 
+    @ExceptionHandler(PromotionNotFoundException.class)
+    public ResponseEntity<String> handlerPromotionNotFound(PromotionNotFoundException ex){
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+
     @ExceptionHandler(SessionAlreadyFinishedException.class)
     public ResponseEntity<String> handlerSessionAlreadyFinished(SessionAlreadyFinishedException ex){
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
@@ -46,6 +51,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ComputerBusyException.class)
     public ResponseEntity<String> handlerComputerBusy(ComputerBusyException ex){
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(PromotionAlreadyExistsException.class)
+    public ResponseEntity<String> handlerPromotionAlreadyExists(PromotionAlreadyExistsException ex){
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 

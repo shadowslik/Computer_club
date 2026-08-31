@@ -5,9 +5,6 @@ import lombok.Data;
 
 @Data
 public class RequestUpdateUser {
-    @NotNull(message = "id обязателен")
-    @Min(value = 1, message = "id должен быть больше 0")
-    private Long id;
 
     @Size(min = 2, max = 30, message = "Имя должно быть от 2 до 30 символов")
     private String name;

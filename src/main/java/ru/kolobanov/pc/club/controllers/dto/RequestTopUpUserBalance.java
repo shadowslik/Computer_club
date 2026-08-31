@@ -6,10 +6,6 @@ import lombok.Data;
 @Data
 public class RequestTopUpUserBalance {
 
-    @NotNull(message = "id пользователя обязателен")
-    @Min(value = 1, message = "id пользователя должен быть больше 0")
-    private Long user_id;
-
     @NotBlank(message = "Номер карты отправителя обязателен")
     @Pattern(regexp = "\\d{16}", message = "Номер карты должен содержать 16 цифр")
     private String cardNumber;
